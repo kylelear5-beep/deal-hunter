@@ -11,6 +11,7 @@ import logging
 import os
 import re
 from datetime import datetime, timezone
+from email.utils import format_datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -137,12 +138,13 @@ def page(title: str, body: str, description: str = "") -> str:
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(description or title, quote=True)}">
+<link rel="alternate" type="application/rss+xml" title="{e(settings.site_name)} RSS" href="{u('/rss.xml')}">
 <style>{CSS}</style>{analytics_html()}</head><body>
 <header><div class="wrap"><a class="logo" href="{u("/")}">🏷️ {e(settings.site_name)}</a>
 <nav>{nav}</nav></div></header>
 <main class="wrap">{body}</main>
 <footer><div class="wrap">{e(DISCLOSURE)} ·
-<a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a>
+<a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
 </div></footer>{COPY_JS}</body></html>"""
 
@@ -205,6 +207,50 @@ def _visible(deals: list[dict]) -> list[dict]:
     if settings.paid_exclusive_price_errors:
         deals = [d for d in deals if d["category"] != "PRICE_ERROR"]
     return deals
+
+
+def _rfc2822(iso_str: str | None) -> str:
+    try:
+        dt = datetime.fromisoformat(str(iso_str).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return format_datetime(dt)
+    except (ValueError, TypeError):
+        return format_datetime(datetime.now(timezone.utc))
+
+
+def rss_xml(deals: list[dict]) -> str:
+    base = settings.public_base_url or ""
+    site_url = base + "/" if base else "/"
+    items = []
+    for d in deals[:50]:
+        title = f"{d['store_name']}: {d['discount_value']}"
+        if d.get("summary"):
+            title += f" - {d['summary']}"
+        desc_parts = [d.get("summary") or "", f"Discount: {d['discount_value']}"]
+        if d.get("promo_code"):
+            desc_parts.append(f"Code: {d['promo_code']}")
+        if d.get("is_verified"):
+            desc_parts.append("Verified at checkout")
+        desc = " | ".join(p for p in desc_parts if p)
+        link = go_link(d)
+        items.append(
+            f"<item><title>{e(title)}</title><link>{e(link)}</link>"
+            f'<guid isPermaLink="false">{e(d["deal_hash"])}</guid>'
+            f"<pubDate>{e(_rfc2822(d.get('created_at')))}</pubDate>"
+            f"<description>{e(desc)}</description></item>"
+        )
+    now_rfc = format_datetime(datetime.now(timezone.utc))
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0"><channel>'
+        f'<title>{e(settings.site_name)}</title>'
+        f'<link>{e(site_url)}</link>'
+        f'<description>Latest deals, promo codes, and freebies from {e(settings.site_name)}.</description>'
+        f'<lastBuildDate>{e(now_rfc)}</lastBuildDate>'
+        + "".join(items)
+        + '</channel></rss>'
+    )
 
 
 def _write(root: Path, rel: str, content: str) -> None:
@@ -310,6 +356,13 @@ async def build_site(db, out_dir: str | None = None) -> int:
     _write(root, "api/index.json", json.dumps({
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "domains": sorted(by_domain)}))
+    written += 1
+
+    unique_deals = {d["deal_hash"]: d for domain_deals in by_domain.values()
+                    for d in domain_deals.values()}
+    rss_deals = sorted(_visible(list(unique_deals.values())),
+                       key=lambda d: d.get("created_at") or "", reverse=True)
+    _write(root, "rss.xml", rss_xml(rss_deals))
     written += 1
 
     base = settings.public_base_url

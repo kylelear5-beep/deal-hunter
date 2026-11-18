@@ -8,3 +8,5 @@ site/
 backups/
 server.txt
 data/
+dist/
+*.zip

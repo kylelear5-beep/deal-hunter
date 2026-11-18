@@ -64,6 +64,8 @@ def channels(monkeypatch):
     monkeypatch.setenv("MOTO_FREE_TELEGRAM", "@motofree")
     monkeypatch.delenv("MOTO_PAID_TELEGRAM", raising=False)
     monkeypatch.delenv("MOTO_PREMIUM_URL", raising=False)
+    for k in ("FARM_FREE_DISCORD", "FARM_PAID_DISCORD", "MOTO_FREE_DISCORD", "MOTO_PAID_DISCORD"):
+        monkeypatch.delenv(k, raising=False)
     monkeypatch.setattr(settings, "telegram_bot_token", "123:abc")
     monkeypatch.setattr(settings, "telegram_chat_id", "999")
     monkeypatch.setattr(settings, "public_base_url", "https://deals.example")
@@ -438,3 +440,28 @@ async def test_site_join_buttons_filters_and_counter(db, channels, tmp_path, mon
     monkeypatch.setattr(settings, "discord_invite_url", "https://discord.com/api/webhooks/1/x")
     await sitegen.build_site(db, str(tmp_path))
     assert "webhooks" not in (tmp_path / "index.html").read_text()  # a webhook is never published
+
+
+async def test_rss_feed_generated(db, channels, tmp_path):
+    import xml.etree.ElementTree as ET
+    await db.insert_deal(make("tractorsupply.com", "20% off <script>", summary="Chicken feed"))
+    await db.insert_deal(make("tractorsupply.com", "$1 tractor (was $2000)", Category.PRICE_ERROR, None))
+    await sitegen.build_site(db, str(tmp_path))
+    rss_path = tmp_path / "rss.xml"
+    assert rss_path.exists()
+    root = ET.fromstring(rss_path.read_text(encoding="utf-8"))
+    titles = [el.text for el in root.findall("./channel/item/title")]
+    assert any("Chicken feed" in t for t in titles)
+    assert not any("$1 tractor" in t for t in titles)
+
+
+def test_package_extension(tmp_path):
+    import zipfile
+    import package_extension
+    out = package_extension.build_extension_zip(out_zip=tmp_path / "ext.zip")
+    assert out.exists()
+    with zipfile.ZipFile(out) as zf:
+        names = set(zf.namelist())
+    assert "manifest.json" in names
+    assert "background.js" in names
+    assert "icons/icon128.png" in names
