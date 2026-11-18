@@ -42,6 +42,11 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
     sources = load_sources()
 
     items = await scrape_all(sources)
+    by_source: dict[str, int] = {}
+    for i in items:
+        kind = i.source.split(":", 1)[0]
+        by_source[kind] = by_source.get(kind, 0) + 1
+    await db.kv_set("last_scrape_sources", json.dumps(by_source))
     hashes = {item_hash(i): i for i in items}
     unprocessed = await db.filter_unprocessed(list(hashes))
     fresh = [hashes[h] for h in hashes if h in unprocessed]
@@ -90,6 +95,7 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
                "new_deals": new, "posts_queued": queued, "alerted": alerted,
                "purged": purged, "verify": verify_stats, "seconds": round(secs, 1)}
     await db.record_run(len(items), len(todo), llm_failed, new)
+    await db.kv_set("last_run_summary", json.dumps(summary, default=str))
     log.info("Run complete: %s", summary)
     return summary
 
@@ -160,9 +166,11 @@ async def cmd_once() -> None:
     async with Database() as db:
         await run_pipeline(db, make_dispatcher(), extractor)
         from publisher import send_due
+        from sheetsync import write_sheet_files
         from sitegen import build_site
         await send_due(db)
         await build_site(db)
+        await write_sheet_files(db)
 
 
 async def pipeline_loop(db, extractor) -> None:
@@ -273,7 +281,12 @@ async def run_actions_once(db, extractor) -> dict:
     # Passing the local time forces the watchdog to run on every Actions run.
     await scheduler_tick(db, datetime.now(ZoneInfo(settings.timezone)))
     from sitegen import build_site
+    from sheetsync import write_sheet_files
     await build_site(db)          # always publish a fresh site with this run's deals
+    try:
+        await write_sheet_files(db)   # status/stats/deals CSVs for the Google Sheet
+    except Exception as exc:  # noqa: BLE001 - never let the sheet files stop a run
+        log.warning("Sheet files failed: %s", exc)
     return summary
 
 

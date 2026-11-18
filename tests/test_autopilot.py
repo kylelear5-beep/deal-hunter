@@ -368,3 +368,55 @@ async def test_actions_run_once(db, channels, tmp_path, monkeypatch):
     n = len(fake.calls)
     await main.run_actions_once(db, Extractor())                  # second run: nothing repeats
     assert not any("autopilot started" in t or "FEED20" in t for t in fake.texts()[n:])
+
+
+# -- Google Sheet sync files ------------------------------------------------------------
+async def test_sheet_files_are_correct_and_hold_no_secrets(db, channels, tmp_path, monkeypatch):
+    import csv as _csv
+    import sheetsync
+    monkeypatch.setenv("FARM_FREE_DISCORD", "https://discord.com/api/webhooks/1/SECRETHOOK")
+    monkeypatch.setenv("FARM_PAID_TELEGRAM", "-100111")
+    monkeypatch.setattr(settings, "gemini_api_key", "AQ.SECRETKEY")
+    monkeypatch.setattr(settings, "ebay_campid", "5338999")
+    d = make("tractorsupply.com", "20% off", summary="=HYPERLINK(evil)")
+    await db.insert_deal(d)
+    await db.record_run(scraped=40, parsed=10, llm_failed=0, new_deals=1)
+    await db.kv_set("last_scrape_sources", '{"rss": 40}')
+    await db.kv_set("last_run_summary", '{"waiting": 7}')
+
+    def handler(request):
+        path = request.url.path
+        if path.endswith("getMe"):
+            return httpx.Response(200, json={"ok": True, "result": {"id": 42, "username": "Bigkylebot"}})
+        if path.endswith("getChatMember"):
+            chat = request.url.params["chat_id"]
+            status = "administrator" if chat == "@farmfree" else "left"
+            return httpx.Response(200, json={"ok": True, "result": {"status": status}})
+        if path.endswith("getChatMemberCount"):
+            return httpx.Response(200, json={"ok": True, "result": 12})
+        return httpx.Response(404, json={"ok": False})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        names = await sheetsync.write_sheet_files(db, str(tmp_path), client=c)
+    assert names == ["status.csv", "stats.csv", "deals.csv"]
+    raw = "".join((tmp_path / "api" / n).read_text() for n in names)
+    for secret in ("SECRETKEY", "SECRETHOOK", "123:abc", ",999", "-100111"):
+        assert secret not in raw                                  # nothing secret is published
+
+    status = {r[0]: r for r in _csv.reader((tmp_path / "api" / "status.csv").open())}
+    assert status["Bot token"][1:3] == ["OK", "@Bigkylebot"]
+    assert status["Farm channel (Telegram)"][1:3] == ["OK", "@farmfree"]
+    assert status["Farm Premium channel (Telegram)"][1:3] == ["Problem", "private channel (set)"]
+    assert status["Farm channel (Discord)"][1:3] == ["OK", "set"]
+    assert status["Reddit"][1] == "Problem"                       # blocked: 0 posts, no keys
+    assert status["eBay Partner Network"][1:3] == ["OK", "set"]
+    assert status["Gemini key"][1:3] == ["OK", "set"]
+
+    stats = dict(r for r in _csv.reader((tmp_path / "api" / "stats.csv").open()))
+    assert stats["Waiting for the AI (backlog)"] == "7"
+    assert stats["Deals found (24 hours)"] == "1"
+    assert stats["Telegram members: @farmfree"] == "12"
+
+    deals = list(_csv.reader((tmp_path / "api" / "deals.csv").open()))
+    assert deals[0][:3] == ["Found", "Niche", "Store"] and deals[1][2] == "Tractorsupply"
+    assert deals[1][3].startswith(" =")                           # formula defused
