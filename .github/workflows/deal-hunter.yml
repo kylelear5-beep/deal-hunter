@@ -10,7 +10,7 @@ on:
   workflow_dispatch: {}
   push:              # new code goes live right away instead of waiting for the timer
     branches: [main]
-    paths-ignore: ["**.md", "dist/**", "extension/**"]
+    paths-ignore: ["**.md", "dist/**", "extension/**", "sheets/**"]
 
 permissions:
   contents: write
