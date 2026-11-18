@@ -527,3 +527,10 @@ async def test_new_design_home_has_real_deals_only(db, channels, tmp_path):
 def test_astro_category_matches_telescopes():
     d = {"summary": "Celestron NexStar telescope", "store_domain": "amazon.com", "discount_value": "$200 off"}
     assert "astro" in match_niches(d)
+
+
+async def test_impact_verification_tag_on_homepage(db, channels, tmp_path):
+    await sitegen.build_site(db, str(tmp_path))
+    home = (tmp_path / "index.html").read_text()
+    assert "<meta name='impact-site-verification' value='c24d86da-e5e2-4ab0-ab86-50c5450d193c'>" in home
+    assert "impact-site-verification" not in (tmp_path / "about.html").read_text()

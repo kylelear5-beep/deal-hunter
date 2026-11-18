@@ -282,6 +282,16 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 </div></footer>{SITE_JS}</body></html>"""
 
 
+def verification_meta() -> str:
+    """Ownership tags (Impact, Pinterest, ...) from site_meta/verification.txt. Only <meta> tags."""
+    f = Path(__file__).resolve().parent / "site_meta" / "verification.txt"
+    if not f.is_file():
+        return ""
+    tags = [ln.strip() for ln in f.read_text(encoding="utf-8").splitlines()
+            if re.fullmatch(r"<meta\s[^<>]*>", ln.strip())]
+    return "".join(tags)
+
+
 def analytics_html() -> str:
     """Optional free, cookie-less visitor counts (Cloudflare Web Analytics or GoatCounter)."""
     parts = []
@@ -508,7 +518,7 @@ async def build_site(db, out_dir: str | None = None) -> int:
     _write(root, "index.html", page(f"{settings.site_name}: today's best deals, coupon codes & freebies",
                                     body, "Live coupon codes, freebies and price drops for farm, "
                                     "motorcycle, tools, auto, electronics and more. Updated every "
-                                    "30 minutes.", active="home"))
+                                    "30 minutes.", extra_head=verification_meta(), active="home"))
     written += 1
 
     # Niche pages
