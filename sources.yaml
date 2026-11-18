@@ -27,7 +27,7 @@ rss:
 
   # DealNews category feeds (robots.txt allows; 2s crawl delay)
   - https://www.dealnews.com/f1320/Tools/?rss=1
-  - https://www.dealnews.com/c146/Electronics/?rss=1
+  - https://www.dealnews.com/c142/Electronics/?rss=1
   - https://www.dealnews.com/c39/Computers/?rss=1
   - https://www.dealnews.com/c238/Autos/?rss=1
 
