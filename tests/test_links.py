@@ -133,9 +133,42 @@ async def test_backfill_uses_browser_when_plain_lookup_blocked(db, monkeypatch):
         transport=httpx.MockTransport(lambda req: httpx.Response(403))))
     seen = []
 
-    async def fake_browser(links):
+    async def fake_browser(links, deadline=None):
         seen.extend(links)
         return {b: ("https://www.amazon.com/dp/B0DD", "ok") for b in links}
     monkeypatch.setattr(lr, "browser_store_pages", fake_browser)
     assert await lr.backfill_store_links(db) == {"tried": 1, "found": 1}
     assert seen == ["https://www.dealnews.com/lw/click.html?20,2,22408374"]
+
+
+async def test_ai_quota_stop_leaves_posts_for_next_run():
+    import parser as p
+    from scraper import RawItem
+    ex = p.LLMExtractor.__new__(p.LLMExtractor)
+    ex.provider, ex.quota_hits, ex.quota_out = "gemini", 0, False
+
+    class NoWait:
+        async def wait(self):
+            pass
+    ex.limiter = NoWait()
+    calls = []
+
+    async def gemini(text):
+        calls.append(text)
+        raise RuntimeError("429 RESOURCE_EXHAUSTED. You exceeded your current quota")
+    ex._gemini = gemini
+    items = [RawItem(text=f"Store{i}: 20% off code C{i}", url=f"u{i}", source="s") for i in range(6)]
+    deals, done = await p.parse_items(items, ex, concurrency=1)
+    assert ex.quota_out and len(calls) == 2          # stopped asking after 2 "used up" answers
+    assert deals == [] and done == set()             # nothing marked read -> retried next run
+
+
+async def test_backfill_respects_deadline(db):
+    import time
+    from datetime import datetime, timezone
+    from parser import Category, Deal
+    await db.insert_deal(Deal(deal_hash="c" * 64, store_name="Amazon", store_domain="amazon.com",
+                              discount_value="$5 off", category=Category.COUPON,
+                              source_url="https://www.dealnews.com/x/22408374.html",
+                              created_at=datetime.now(timezone.utc), summary="Mic"))
+    assert await lr.backfill_store_links(db, deadline=time.monotonic() - 1) == {"tried": 0, "found": 0}

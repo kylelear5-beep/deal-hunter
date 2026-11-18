@@ -144,7 +144,8 @@ async def fill_store_link(client: httpx.AsyncClient, deal: dict, click_link: str
     return (await fill_store_link_why(client, deal, click_link))[0]
 
 
-async def browser_store_pages(buy_links: list[str], wait_ms: int = 15000) -> dict[str, tuple]:
+async def browser_store_pages(buy_links: list[str], wait_ms: int = 15000,
+                              deadline: float | None = None) -> dict[str, tuple]:
     """Open buy links in the bot's real browser (deal sites often block plain lookups).
     Returns {buy_link: (url or None, reason)}. Missing browser -> every link fails softly."""
     out: dict[str, tuple] = {}
@@ -168,7 +169,11 @@ async def browser_store_pages(buy_links: list[str], wait_ms: int = 15000) -> dic
                                 if r.request.resource_type in ("image", "media", "font")
                                 else r.continue_())
             page = await context.new_page()
+            import time
             for b in buy_links:
+                if deadline is not None and time.monotonic() > deadline:
+                    out[b] = (None, "out of time")
+                    continue
                 try:
                     await page.goto(b, wait_until="domcontentloaded", timeout=wait_ms)
                     if "slickdeals.net/f/" in b:            # a post: take its buy button
@@ -207,7 +212,7 @@ async def click_link_from_post(client: httpx.AsyncClient, post_url: str) -> str:
 
 
 async def backfill_store_links(db, limit: int = 40, browser_limit: int = 30,
-                               use_browser: bool = True) -> dict:
+                               use_browser: bool = True, deadline: float | None = None) -> dict:
     """Give saved deals without a product link one, a few per run. Plain lookup first,
     then the real browser for the ones that failed. Each deal is tried twice at most."""
     import json
@@ -232,8 +237,17 @@ async def backfill_store_links(db, limit: int = 40, browser_limit: int = 30,
             "UPDATE deals SET merchant_url = ?, affiliate_url = ? WHERE deal_hash = ?",
             (deal["merchant_url"], deal["affiliate_url"], deal["deal_hash"]))
 
+    import time
+
+    def out_of_time() -> bool:
+        return deadline is not None and time.monotonic() > deadline
+
+    tried = 0
     async with httpx.AsyncClient() as client:
         for h, domain, src, merchant in todo:
+            if out_of_time():
+                break
+            tried += 1
             tries[h] = tries.get(h, 0) + 1
             deal = {"deal_hash": h, "store_domain": domain, "source_url": src,
                     "merchant_url": merchant}
@@ -252,10 +266,10 @@ async def backfill_store_links(db, limit: int = 40, browser_limit: int = 30,
                     retry.append((deal, buy or src))
 
     browser_found = 0
-    if use_browser and retry:
+    if use_browser and retry and not out_of_time():
         retry = retry[:browser_limit]
         try:
-            results = await browser_store_pages([b for _, b in retry])
+            results = await browser_store_pages([b for _, b in retry], deadline=deadline)
         except Exception as exc:  # noqa: BLE001 - browser problems must never stop a run
             log.warning("Browser link lookup failed: %s", exc)
             results = {}
@@ -270,8 +284,8 @@ async def backfill_store_links(db, limit: int = 40, browser_limit: int = 30,
     await db.conn.commit()
     tries = {h: n for h, n in tries.items() if h in live}          # forget gone deals
     await db.kv_set(key, json.dumps(tries))
-    if todo:
+    if tried:
         log.info("Store links: %d found plainly + %d with the browser, of %d tried. "
-                 "Why the rest failed: %s", found, browser_found, len(todo),
+                 "Why the rest failed: %s", found, browser_found, tried,
                  dict(reasons.most_common(8)))
-    return {"tried": len(todo), "found": found + browser_found}
+    return {"tried": tried, "found": found + browser_found}

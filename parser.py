@@ -18,7 +18,8 @@ from typing import Optional, Protocol
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, ValidationError
-from tenacity import AsyncRetrying, stop_after_attempt, wait_exponential_jitter
+from tenacity import (AsyncRetrying, retry_if_not_exception_type, stop_after_attempt,
+                      wait_exponential_jitter)
 
 from affiliate import UNTAGGABLE_HOSTS, build_affiliate_url, host_matches
 from config import settings
@@ -256,6 +257,15 @@ class RateLimiter:
             await asyncio.sleep(delay)
 
 
+class AIQuotaUsedUp(RuntimeError):
+    """The AI said its free quota is used up; stop asking until the next run."""
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    text = f"{type(exc).__name__} {exc}"
+    return "429" in text or "RESOURCE_EXHAUSTED" in text or "quota" in text.lower()
+
+
 class LLMExtractor:
     """Gemini (google-genai) by default; LLM_PROVIDER=openai for any OpenAI-compatible API
     (OpenAI, Ollama, LM Studio, OpenRouter... via OPENAI_BASE_URL)."""
@@ -263,6 +273,8 @@ class LLMExtractor:
     def __init__(self):
         self.provider = settings.llm_provider
         self.limiter = RateLimiter(settings.llm_max_rpm)
+        self.quota_hits = 0          # "quota used up" answers in a row
+        self.quota_out = False       # True -> skip the AI for the rest of this run
         if self.provider == "gemini":
             if not settings.gemini_api_key:
                 raise RuntimeError("GEMINI_API_KEY is missing in .env")
@@ -305,13 +317,27 @@ class LLMExtractor:
 
     async def extract(self, text: str) -> ExtractionResult:
         text = text[: settings.llm_max_chars]
+        if self.quota_out:
+            raise AIQuotaUsedUp("AI quota used up earlier this run")
         async for attempt in AsyncRetrying(stop=stop_after_attempt(3),
                                            wait=wait_exponential_jitter(initial=4, max=60),
+                                           retry=retry_if_not_exception_type(AIQuotaUsedUp),
                                            reraise=True):
             with attempt:
                 await self.limiter.wait()
-                raw = await (self._gemini(text) if self.provider == "gemini"
-                             else self._openai(text))
+                try:
+                    raw = await (self._gemini(text) if self.provider == "gemini"
+                                 else self._openai(text))
+                except Exception as exc:  # noqa: BLE001
+                    if _is_quota_error(exc):
+                        self.quota_hits += 1
+                        if self.quota_hits >= 2 and not self.quota_out:
+                            self.quota_out = True
+                            log.warning("AI free quota is used up; the rest of the posts "
+                                        "wait for the next run.")
+                        raise AIQuotaUsedUp(str(exc)[:200]) from exc
+                    raise
+                self.quota_hits = 0
                 return ExtractionResult.model_validate(json.loads(raw))
         raise RuntimeError("unreachable")  # pragma: no cover
 
@@ -345,6 +371,8 @@ async def parse_items(items: list[RawItem], extractor: Extractor,
                 log.warning("Bad LLM output for %s: %s", item.url, exc)
                 await finished(item, [])  # retrying the same text won't help
                 return []
+            except AIQuotaUsedUp:
+                return []                 # not marked finished -> read on the next run
             except Exception as exc:  # noqa: BLE001
                 log.warning("LLM call failed for %s: %s", item.url, exc)
                 return []

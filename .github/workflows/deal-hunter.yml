@@ -36,6 +36,7 @@ jobs:
       CLICK_TRACKING: "false"
       PUBLIC_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
       LOOP_MINUTES: "30"
+      MAX_AI_ITEMS_PER_RUN: "20"   # free Gemini limit; this wins over the ENV_FILE value
       PYTHONUTF8: "1"
     steps:
       - name: Note start time
@@ -82,7 +83,7 @@ jobs:
 
       - name: Run Deal Hunter
         # Its own limit, so the database and website below are always saved.
-        timeout-minutes: 18
+        timeout-minutes: 25
         continue-on-error: true
         run: python main.py actions
 

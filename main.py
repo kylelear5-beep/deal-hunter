@@ -22,6 +22,7 @@ import argparse
 import asyncio
 import logging
 import sys
+import time
 import json
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -318,9 +319,13 @@ async def recheck_saved_deals(db) -> dict:
     return fixed
 
 
+RUN_BUDGET_SECONDS = 14 * 60   # the workflow step allows 25 minutes; stay well inside it
+
+
 async def run_actions_once(db, extractor) -> dict:
     """One GitHub Actions run: a scan, then every scheduled job that is due right now.
     Jobs keep their once-a-day / once-a-week memory in the database between runs."""
+    started = time.monotonic()
     if not await db.kv_get("process_started_at"):
         await db.kv_set("process_started_at",
                         datetime.now(timezone.utc).isoformat(timespec="seconds"))
@@ -336,21 +341,31 @@ async def run_actions_once(db, extractor) -> dict:
     except Exception as exc:  # noqa: BLE001 - still post, build the site and run the watchdog
         log.exception("Pipeline run failed: %s", exc)
         await db.record_run(0, 0, 0, 0, error=str(exc)[:300])
-    # After the scan, so this run's new deals get their store page too.
-    try:
-        from linkresolve import backfill_store_links
-        await backfill_store_links(db)
-    except Exception as exc:  # noqa: BLE001 - link lookups must never stop a run
-        log.warning("Store link backfill failed: %s", exc)
-    # Passing the local time forces the watchdog to run on every Actions run.
+    # Posts, reports and the watchdog. Passing the local time forces the watchdog every run.
     await scheduler_tick(db, datetime.now(ZoneInfo(settings.timezone)))
     from sitegen import build_site
     from sheetsync import write_sheet_files
-    await build_site(db)          # always publish a fresh site with this run's deals
-    try:
-        await write_sheet_files(db)   # status/stats/deals CSVs for the Google Sheet
-    except Exception as exc:  # noqa: BLE001 - never let the sheet files stop a run
-        log.warning("Sheet files failed: %s", exc)
+
+    async def publish() -> None:
+        await build_site(db)          # always publish a fresh site with this run's deals
+        try:
+            await write_sheet_files(db)   # status/stats/deals CSVs for the Google Sheet
+        except Exception as exc:  # noqa: BLE001 - never let the sheet files stop a run
+            log.warning("Sheet files failed: %s", exc)
+
+    await publish()                   # site first, so slow link lookups can never block it
+    # Then look up store pages with whatever time is left (about 14 minutes per run in all).
+    left = RUN_BUDGET_SECONDS - (time.monotonic() - started)
+    if left > 60:
+        try:
+            from linkresolve import backfill_store_links
+            got = await backfill_store_links(db, deadline=time.monotonic() + left)
+            if got.get("found"):
+                await publish()       # show the new product links right away
+        except Exception as exc:  # noqa: BLE001 - link lookups must never stop a run
+            log.warning("Store link backfill failed: %s", exc)
+    else:
+        log.info("No time left for store link lookups this run")
     return summary
 
 
