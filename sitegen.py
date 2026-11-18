@@ -336,7 +336,13 @@ async def build_site(db, out_dir: str | None = None) -> int:
         "count.</p><p>Our server keeps standard technical logs for security, deleted "
         "regularly.</p><p>When you leave for a store through an affiliate link, that store "
         "and its affiliate network may set their own cookies under their own privacy "
-        "policies.</p>" + contact))
+        "policies.</p>"
+        "<h2>Browser extension</h2><p>Our Deal Hunter browser extension looks at the web "
+        "address of the tab you're on only to find that store's name (for example "
+        "tractorsupply.com). It then downloads the public deal list for that store from this "
+        "website. It never reads page content, passwords or forms, and it doesn't keep a "
+        "history of the sites you visit. Your extension settings are saved in your own "
+        "browser. We don't sell or share any data.</p>" + contact))
     written += 2
     urls += ["/about.html", "/privacy.html"]
 
