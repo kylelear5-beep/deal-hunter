@@ -74,6 +74,9 @@ jobs:
           rm -rf data/.git
 
       - name: Run Deal Hunter
+        # Its own limit, so the database and website below are always saved.
+        timeout-minutes: 18
+        continue-on-error: true
         run: python main.py actions
 
       - name: Save database to the data branch

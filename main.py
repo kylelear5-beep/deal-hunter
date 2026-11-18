@@ -44,23 +44,36 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
     items = await scrape_all(sources)
     hashes = {item_hash(i): i for i in items}
     unprocessed = await db.filter_unprocessed(list(hashes))
-    todo = [hashes[h] for h in unprocessed]
-    log.info("Scraped %d items, %d new since last run", len(items), len(todo))
+    fresh = [hashes[h] for h in hashes if h in unprocessed]
 
-    deals, finished = await parse_items(todo, extractor)
-    await db.mark_processed(finished)
-    llm_failed = len(todo) - len(finished)
+    # Posts that clearly aren't deals cost nothing; the AI reads at most N per run.
+    from parser import looks_like_deal
+    skipped = [item_hash(i) for i in fresh if not looks_like_deal(i.text)]
+    await db.mark_processed(skipped)
+    candidates = [i for i in fresh if looks_like_deal(i.text)]
+    todo = candidates[: settings.max_ai_items_per_run]
+    waiting = len(candidates) - len(todo)
+    log.info("Scraped %d items: %d new, %d for the AI now%s", len(items), len(fresh), len(todo),
+             f", {waiting} wait for the next run" if waiting else "")
 
     from publisher import enqueue_deal
-    new = alerted = queued = 0
-    for deal in deals:
-        deal.niches = match_niches(deal.model_dump(mode="json"))
-        if await db.insert_deal(deal):
-            new += 1
-            data = deal.model_dump(mode="json")
-            queued += await enqueue_deal(db, data)
-            if await dispatcher.dispatch(data, db):
-                alerted += 1
+    counts = {"new": 0, "alerted": 0, "queued": 0}
+
+    async def save_item(h: str, item_deals) -> None:
+        """Store each post's deals the moment the AI has read it."""
+        for deal in item_deals:
+            deal.niches = match_niches(deal.model_dump(mode="json"))
+            if await db.insert_deal(deal):
+                counts["new"] += 1
+                data = deal.model_dump(mode="json")
+                counts["queued"] += await enqueue_deal(db, data)
+                if await dispatcher.dispatch(data, db):
+                    counts["alerted"] += 1
+        await db.mark_processed([h])
+
+    _, finished = await parse_items(todo, extractor, on_item=save_item)
+    llm_failed = len(todo) - len(finished)
+    new, alerted, queued = counts["new"], counts["alerted"], counts["queued"]
 
     verify_stats = {}
     if settings.verify_enabled:
@@ -72,7 +85,8 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
 
     purged = await db.purge_expired()
     secs = (datetime.now(timezone.utc) - started).total_seconds()
-    summary = {"scraped": len(items), "parsed": len(todo), "llm_failed": llm_failed,
+    summary = {"scraped": len(items), "parsed": len(todo), "waiting": waiting,
+               "llm_failed": llm_failed,
                "new_deals": new, "posts_queued": queued, "alerted": alerted,
                "purged": purged, "verify": verify_stats, "seconds": round(secs, 1)}
     await db.record_run(len(items), len(todo), llm_failed, new)

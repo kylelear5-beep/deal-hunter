@@ -280,28 +280,34 @@ class LLMExtractor:
 # Pipeline entry point
 # ----------------------------------------------------------------------------
 async def parse_items(items: list[RawItem], extractor: Extractor,
-                      concurrency: int = 3) -> tuple[list[Deal], set[str]]:
+                      concurrency: int = 3, on_item=None) -> tuple[list[Deal], set[str]]:
     """Run extraction over raw items -> (unique unexpired Deals, hashes of finished items).
 
-    Items whose LLM call failed are NOT in the finished set, so they get retried next run."""
+    Items whose LLM call failed are NOT in the finished set, so they get retried next run.
+    on_item(item_hash, deals) is awaited as soon as each item is finished, so work is saved
+    as it goes and a run that gets cut off never redoes it."""
     sem = asyncio.Semaphore(concurrency)
     done: set[str] = set()
 
+    async def finished(item: RawItem, deals: list[Deal]) -> None:
+        done.add(item_hash(item))
+        if on_item is not None:
+            await on_item(item_hash(item), deals)
+
     async def one(item: RawItem) -> list[Deal]:
         if not looks_like_deal(item.text):
-            done.add(item_hash(item))
+            await finished(item, [])
             return []
         async with sem:
             try:
                 result = await extractor.extract(item.text)
             except (ValidationError, json.JSONDecodeError) as exc:
                 log.warning("Bad LLM output for %s: %s", item.url, exc)
-                done.add(item_hash(item))  # retrying the same text won't help
+                await finished(item, [])  # retrying the same text won't help
                 return []
             except Exception as exc:  # noqa: BLE001
                 log.warning("LLM call failed for %s: %s", item.url, exc)
                 return []
-        done.add(item_hash(item))
         out = []
         for ex in result.deals:
             try:
@@ -311,6 +317,7 @@ async def parse_items(items: list[RawItem], extractor: Extractor,
                 continue
             if deal:
                 out.append(deal)
+        await finished(item, out)
         return out
 
     batches = await asyncio.gather(*(one(i) for i in items))

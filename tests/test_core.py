@@ -254,3 +254,52 @@ async def test_full_pipeline_offline(db, monkeypatch):
     assert first["new_deals"] == 2 and first["alerted"] == 1 and n.sent == 1
     second = await main.run_pipeline(db, alerts.AlertDispatcher([n]), fake)
     assert second["parsed"] == 0 and fake.calls == 1      # same post not re-sent to the LLM
+
+
+async def test_ai_cap_per_run_and_saving_as_it_goes(db, monkeypatch):
+    import asyncio
+    import main
+    monkeypatch.setattr(settings, "verify_enabled", False)
+    monkeypatch.setattr(settings, "max_ai_items_per_run", 2)
+    items = [RawItem(text=f"Store{i}: 20% off code C{i}", url=f"u{i}", source="s")
+             for i in range(5)] + [RawItem(text="Which pizza do you like?", url="p", source="s")]
+
+    async def fake_scrape(sources):
+        return items
+    monkeypatch.setattr(main, "scrape_all", fake_scrape)
+
+    class Ext:
+        calls = 0
+
+        async def extract(self, text):
+            Ext.calls += 1
+            n = text.split(":")[0][5:]
+            return ExtractionResult(deals=[ex(store_domain=f"store{n}.com", merchant_url=None,
+                                              promo_code=f"C{n}")])
+
+    first = await main.run_pipeline(db, alerts.AlertDispatcher([]), Ext())
+    assert first["parsed"] == 2 and first["waiting"] == 3 and first["new_deals"] == 2
+    second = await main.run_pipeline(db, alerts.AlertDispatcher([]), Ext())
+    assert second["parsed"] == 2 and second["new_deals"] == 2
+    third = await main.run_pipeline(db, alerts.AlertDispatcher([]), Ext())
+    assert third["parsed"] == 1 and third["waiting"] == 0
+    assert Ext.calls == 5                       # the non-deal post never reached the AI
+
+    # A run cut off mid-way keeps what it already finished
+    class Slow:
+        async def extract(self, text):
+            if "Store9" in text:
+                await asyncio.sleep(10)
+            return ExtractionResult(deals=[ex(store_domain="fast.com", merchant_url=None)])
+    items[:] = [RawItem(text="Store8: 10% off", url="u8", source="s"),
+                RawItem(text="Store9: 10% off", url="u9", source="s")]
+    monkeypatch.setattr(settings, "max_ai_items_per_run", 60)
+    try:
+        await asyncio.wait_for(main.run_pipeline(db, alerts.AlertDispatcher([]), Slow()), 1)
+    except asyncio.TimeoutError:
+        pass
+    from parser import item_hash
+    left = await db.filter_unprocessed([item_hash(i) for i in items])
+    assert left == {item_hash(items[1])}       # Store8 saved; only the cut-off one remains
+    assert await db.get_deal(build_deal(ex(store_domain="fast.com", merchant_url=None),
+                                        items[0]).deal_hash)
