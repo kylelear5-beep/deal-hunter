@@ -45,6 +45,7 @@ class RawItem:
     text: str
     url: str
     source: str
+    click_link: str = ""     # deal site's "buy" redirect, followed later to find the store page
 
 
 class RetryableHTTPError(Exception):
@@ -144,10 +145,13 @@ class RSSScraper(BaseScraper):
         items: list[RawItem] = []
         for entry in parsed.entries:
             title = entry.get("title", "")
-            summary = html_to_text(entry.get("summary", "") or entry.get("description", ""))
+            raw_html = entry.get("summary", "") or entry.get("description", "")
+            summary = html_to_text(raw_html)
             link = entry.get("link", feed_url)
+            from linkresolve import first_click_link
             items.append(RawItem(text=f"{title}\n{summary}\nLink: {link}", url=link,
-                                 source=f"rss:{urlparse(feed_url).netloc}"))
+                                 source=f"rss:{urlparse(feed_url).netloc}",
+                                 click_link=first_click_link(raw_html)))
         log.info("RSS %s -> %d items", urlparse(feed_url).netloc, len(items))
         return items
 

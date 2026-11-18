@@ -173,6 +173,19 @@ async def status_rows(db, tg: Telegram) -> list[list]:
     rss = sources.get("rss", 0)
     rows.append(["Slickdeals feeds", OK if rss else PROBLEM, f"{rss} posts last run", "", "sources.yaml"])
 
+    # Do "Get deal" buttons open the item itself?
+    from affiliate import has_product_link
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    cur = await db.conn.execute(
+        "SELECT merchant_url FROM deals WHERE (expiration_date IS NULL OR expiration_date >= date('now')) "
+        "AND verify_status != 'flagged' AND created_at >= ?", (week_ago,))
+    links = [r[0] for r in await cur.fetchall()]
+    direct = sum(1 for u in links if has_product_link({"merchant_url": u}))
+    pct = round(100 * direct / len(links)) if links else 0
+    rows.append(["Product links", OK if pct >= 50 or not links else PROBLEM,
+                 f"{direct} of {len(links)} go to the item ({pct}%)",
+                 "The rest open the deal post; older deals get fixed a few each run", ""])
+
     # Money
     rows.append(["eBay Partner Network", OK if settings.ebay_campid else BLANK,
                  "set" if settings.ebay_campid else "", "" if settings.ebay_campid else

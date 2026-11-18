@@ -18,6 +18,8 @@ STRIP_PARAMS = {
     "campid", "customid", "mkcid", "mkrid", "mkevt", "toolid", "siteid",
     "fbclid", "gclid", "dclid", "msclkid", "mc_cid", "mc_eid", "irclickid", "clickid",
     "subid", "subid1", "sid", "afsrc", "ranmid", "raneaid", "ransiteid", "cjevent",
+    "u1", "u2", "u3", "irgwc", "sharedid", "wmlspartner", "affiliates_ad_id", "veh",
+    "sourceid", "subid2", "subid3", "affid", "aff_id", "partnerid", "iref",
 }
 
 # Links that are shorteners or third-party redirects; tagging them does nothing.

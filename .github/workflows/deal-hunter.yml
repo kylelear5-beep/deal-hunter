@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch: {}
+  push:              # new code goes live right away instead of waiting for the timer
+    branches: [main]
+    paths-ignore: ["**.md", "dist/**", "extension/**"]
 
 permissions:
   contents: write
@@ -124,10 +127,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          wait=$(( RUN_STARTED + 1800 - $(date +%s) ))
-          [ "$wait" -gt 0 ] && sleep "$wait"
-          waiting=$(gh run list -R "$GITHUB_REPOSITORY" -w deal-hunter.yml --json status,databaseId \
-            -q "[.[] | select((.status==\"queued\" or .status==\"waiting\" or .status==\"pending\" or .status==\"in_progress\") and .databaseId != ${{ github.run_id }})] | length")
+          others() {
+            gh run list -R "$GITHUB_REPOSITORY" -w deal-hunter.yml --json status,databaseId \
+              -q "[.[] | select((.status==\"queued\" or .status==\"waiting\" or .status==\"pending\" or .status==\"in_progress\") and .databaseId != ${{ github.run_id }})] | length"
+          }
+          # Wait until 30 minutes after this run began, but step aside as soon as another run
+          # (for example one started by a code update) is waiting, so updates go live fast.
+          while [ $(( RUN_STARTED + 1800 - $(date +%s) )) -gt 0 ]; do
+            if [ "$(others)" -gt 0 ] 2>/dev/null; then
+              echo "A newer run is waiting; handing over to it."
+              exit 0
+            fi
+            sleep 60
+          done
+          waiting=$(others)
           if [ "${waiting:-0}" -gt 0 ]; then
             echo "Another run is already lined up; not starting a second one."
           else

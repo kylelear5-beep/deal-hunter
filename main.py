@@ -64,9 +64,22 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
     from publisher import enqueue_deal
     counts = {"new": 0, "alerted": 0, "queued": 0}
 
+    import httpx
+    from linkresolve import fill_store_link
+    link_client = httpx.AsyncClient()
+    counts["store_links"] = 0
+
     async def save_item(h: str, item_deals) -> None:
         """Store each post's deals the moment the AI has read it."""
+        item = hashes.get(h)
         for deal in item_deals:
+            d = deal.model_dump(mode="json")
+            try:
+                if await fill_store_link(link_client, d, getattr(item, "click_link", "")):
+                    deal.merchant_url, deal.affiliate_url = d["merchant_url"], d["affiliate_url"]
+                    counts["store_links"] += 1
+            except Exception as exc:  # noqa: BLE001 - a link lookup must never lose a deal
+                log.debug("Store link lookup crashed: %s", exc)
             deal.niches = match_niches(deal.model_dump(mode="json"))
             if await db.insert_deal(deal):
                 counts["new"] += 1
@@ -76,7 +89,10 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
                     counts["alerted"] += 1
         await db.mark_processed([h])
 
-    _, finished = await parse_items(todo, extractor, on_item=save_item)
+    try:
+        _, finished = await parse_items(todo, extractor, on_item=save_item)
+    finally:
+        await link_client.aclose()
     llm_failed = len(todo) - len(finished)
     new, alerted, queued = counts["new"], counts["alerted"], counts["queued"]
 
@@ -93,6 +109,7 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
     summary = {"scraped": len(items), "parsed": len(todo), "waiting": waiting,
                "llm_failed": llm_failed,
                "new_deals": new, "posts_queued": queued, "alerted": alerted,
+               "store_links_found": counts["store_links"],
                "purged": purged, "verify": verify_stats, "seconds": round(secs, 1)}
     await db.record_run(len(items), len(todo), llm_failed, new)
     await db.kv_set("last_run_summary", json.dumps(summary, default=str))
@@ -314,6 +331,11 @@ async def run_actions_once(db, extractor) -> dict:
         await recheck_saved_deals(db)
     except Exception as exc:  # noqa: BLE001 - a cleanup problem must never stop a run
         log.warning("Re-check of saved deals failed: %s", exc)
+    try:
+        from linkresolve import backfill_store_links
+        await backfill_store_links(db)
+    except Exception as exc:  # noqa: BLE001 - link lookups must never stop a run
+        log.warning("Store link backfill failed: %s", exc)
     try:
         summary = await run_pipeline(db, make_dispatcher(), extractor)
     except Exception as exc:  # noqa: BLE001 - still post, build the site and run the watchdog
