@@ -1,0 +1,10 @@
+.venv/
+.env
+deals.db*
+logs/
+__pycache__/
+.pytest_cache/
+site/
+backups/
+server.txt
+data/

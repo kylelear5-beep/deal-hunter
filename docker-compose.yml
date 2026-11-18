@@ -1,0 +1,39 @@
+# Started by deploy.sh. Manual: docker compose up -d --build
+# With a domain (HTTPS via Caddy): docker compose --profile https up -d --build
+services:
+  deal-hunter:
+    build: .
+    env_file: .env
+    environment:
+      API_HOST: 0.0.0.0
+      DB_PATH: /data/deals.db
+      BACKUP_DIR: /data/backups
+      RUN_MODE: all
+    ports:
+      - "8000:8000"
+    volumes:
+      - dealdata:/data
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  caddy:            # automatic HTTPS for your domain (only with --profile https)
+    image: caddy:2
+    profiles: ["https"]
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on: [deal-hunter]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  dealdata:
+  caddydata:

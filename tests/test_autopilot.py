@@ -1,0 +1,370 @@
+"""v3 autopilot tests: niches, channel queue, publisher, digests, website, watchdog,
+scheduler, click tracking, backups, DB migration. No internet needed (Telegram is mocked)."""
+import json
+import sqlite3
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import httpx
+import pytest
+
+import main
+import publisher
+import sitegen
+import watchdog
+from config import settings
+from database import Database
+from niches import load_niches, match_niches
+from parser import Category, ExtractedDeal, build_deal
+from scraper import RawItem
+
+ITEM = RawItem(text="x", url="https://reddit.com/r/deals/9", source="reddit:r/deals")
+
+
+def make(domain, value, cat=Category.COUPON, code="SAVE10", summary=""):
+    d = build_deal(ExtractedDeal(store_name=domain.split(".")[0].title(), store_domain=domain,
+                                 merchant_url=None, promo_code=code, discount_value=value,
+                                 category=cat, expiration_date=None, summary=summary), ITEM)
+    d.niches = match_niches(d.model_dump(mode="json"))
+    return d
+
+
+class FakeTelegram:
+    """Records Telegram/Discord calls made through httpx."""
+
+    def __init__(self, fail_with=None):
+        self.calls = []
+        self.fail_with = fail_with
+
+    def handler(self, request: httpx.Request):
+        body = json.loads(request.content or b"{}") if request.method == "POST" else {}
+        self.calls.append((request.url.path, body))
+        if request.url.path.endswith("getChatMemberCount"):
+            return httpx.Response(200, json={"ok": True, "result": 42})
+        if self.fail_with:
+            return self.fail_with
+        return httpx.Response(200, json={"ok": True, "result": {}})
+
+    def client(self):
+        return httpx.AsyncClient(transport=httpx.MockTransport(self.handler))
+
+    def texts(self):
+        return [b.get("text", "") for _, b in self.calls]
+
+    def chats(self):
+        return [b.get("chat_id") for _, b in self.calls if "chat_id" in b]
+
+
+@pytest.fixture
+def channels(monkeypatch):
+    monkeypatch.setenv("FARM_FREE_TELEGRAM", "@farmfree")
+    monkeypatch.setenv("FARM_PAID_TELEGRAM", "-100111")
+    monkeypatch.setenv("FARM_PREMIUM_URL", "https://launchpass.com/farm")
+    monkeypatch.setenv("MOTO_FREE_TELEGRAM", "@motofree")
+    monkeypatch.delenv("MOTO_PAID_TELEGRAM", raising=False)
+    monkeypatch.delenv("MOTO_PREMIUM_URL", raising=False)
+    monkeypatch.setattr(settings, "telegram_bot_token", "123:abc")
+    monkeypatch.setattr(settings, "telegram_chat_id", "999")
+    monkeypatch.setattr(settings, "public_base_url", "https://deals.example")
+    monkeypatch.setattr(settings, "free_delay_minutes", 60)
+    monkeypatch.setattr(settings, "paid_exclusive_price_errors", True)
+    monkeypatch.setattr(settings, "free_teasers", True)
+
+
+# -- niches --------------------------------------------------------------------
+def test_niche_matching():
+    assert {n.id for n in load_niches()} == {"farm", "moto"}
+    assert match_niches({"store_domain": "tractorsupply.com", "discount_value": "10% off"}) \
+        == ["farm"]
+    assert match_niches({"store_domain": "amazon.com", "summary": "Sena 50S intercom",
+                         "discount_value": "$80 off"}) == ["moto"]
+    assert match_niches({"store_domain": "amazon.com", "summary": "Stihl chainsaw",
+                         "discount_value": "$50 off"}) == ["farm"]
+    assert match_niches({"store_domain": "pizzahut.com", "summary": "Large pizza",
+                         "discount_value": "50% off"}) == []
+    # whole words only: "feedback" must not match "feed"
+    assert match_niches({"store_domain": "x.com", "summary": "feedback survey"}) == []
+
+
+# -- queue -----------------------------------------------------------------------
+async def _due(db, when):
+    return await db.due_posts(when.isoformat(timespec="seconds"))
+
+
+async def test_queue_paid_now_free_later(db, channels):
+    d = make("tractorsupply.com", "20% off", summary="Layer feed 50 lb")
+    await db.insert_deal(d)
+    assert await publisher.enqueue_deal(db, d.model_dump(mode="json")) == 2
+    now = datetime.now(timezone.utc)
+    assert [p["tier"] for p in await _due(db, now + timedelta(seconds=5))] == ["paid"]
+    assert sorted(p["tier"] for p in await _due(db, now + timedelta(minutes=61))) == \
+        ["free", "paid"]
+
+
+async def test_price_error_paid_only_with_teaser(db, channels):
+    d = make("tractorsupply.com", "$400 generator for $40", Category.PRICE_ERROR, code=None)
+    await db.insert_deal(d)
+    await publisher.enqueue_deal(db, d.model_dump(mode="json"))
+    rows = await _due(db, datetime.now(timezone.utc) + timedelta(seconds=5))
+    assert sorted((r["tier"], r["post_type"]) for r in rows) == [("free", "teaser"),
+                                                                 ("paid", "deal")]
+
+
+async def test_no_paid_channel_means_free_is_instant(db, channels):
+    d = make("revzilla.com", "30% off helmets")
+    await db.insert_deal(d)
+    await publisher.enqueue_deal(db, d.model_dump(mode="json"))
+    rows = await _due(db, datetime.now(timezone.utc) + timedelta(seconds=5))
+    assert [(r["niche"], r["tier"]) for r in rows] == [("moto", "free")]
+
+
+# -- sending ---------------------------------------------------------------------
+async def test_send_due_formats_and_marks_sent(db, channels):
+    d = make("tractorsupply.com", "20% off", summary="Layer <feed>")
+    await db.insert_deal(d)
+    await publisher.enqueue_deal(db, d.model_dump(mode="json"))
+    fake = FakeTelegram()
+    async with fake.client() as c:
+        stats = await publisher.send_due(db, c)
+        assert stats == {"sent": 1, "failed": 0, "skipped": 0}
+        assert (await publisher.send_due(db, c))["sent"] == 0      # never twice
+    text = fake.texts()[0]
+    assert fake.chats() == ["-100111"]
+    assert "https://deals.example/go/" + d.deal_hash[:12] in text
+    assert "Layer &lt;feed&gt;" in text and "<code>SAVE10</code>" in text
+    assert "Affiliate link" in text
+    assert "Premium" not in text                                   # paid post: no upsell
+
+
+async def test_free_post_has_premium_link(db, channels):
+    d = make("tractorsupply.com", "20% off")
+    data = d.model_dump(mode="json")
+    from niches import get_niche
+    text = publisher.telegram_deal_text(data, get_niche("farm"), "free")
+    assert "launchpass.com/farm" in text
+
+
+async def test_rate_limit_retries_later(db, channels):
+    d = make("revzilla.com", "30% off")
+    await db.insert_deal(d)
+    await publisher.enqueue_deal(db, d.model_dump(mode="json"))
+    fake = FakeTelegram(fail_with=httpx.Response(
+        429, json={"ok": False, "description": "Too Many Requests",
+                   "parameters": {"retry_after": 30}}))
+    async with fake.client() as c:
+        assert (await publisher.send_due(db, c))["failed"] == 1
+        assert (await publisher.send_due(db, c))["failed"] == 0   # waiting for retry time
+
+
+async def test_deleted_deal_post_is_skipped(db, channels):
+    d = make("revzilla.com", "30% off")
+    await db.insert_deal(d)
+    await publisher.enqueue_deal(db, d.model_dump(mode="json"))
+    await db.record_failure(d.deal_hash, delete_after=1)          # dead code -> deleted
+    assert await db.orphan_posts_cleanup() == 1
+
+
+async def test_digest_skips_price_errors(db, channels):
+    for v in ("$60 off chainsaw", "40% off boots", "$10 off feed"):
+        await db.insert_deal(make("tractorsupply.com", v))
+    await db.insert_deal(make("tractorsupply.com", "$1 tractor", Category.PRICE_ERROR, None))
+    fake = FakeTelegram()
+    async with fake.client() as c:
+        sent = await publisher.send_digest(db, client=c)
+    assert sent == 1 and fake.chats() == ["@farmfree"]
+    assert "$1 tractor" not in fake.texts()[0] and "$60 off chainsaw" in fake.texts()[0]
+
+
+# -- website ---------------------------------------------------------------------
+async def test_build_site(db, channels, tmp_path):
+    await db.insert_deal(make("tractorsupply.com", "20% off <script>", summary="Feed"))
+    await db.insert_deal(make("revzilla.com", "30% off", summary="Shoei helmet"))
+    await db.insert_deal(make("tractorsupply.com", "$1 tractor", Category.PRICE_ERROR, None))
+    n = await sitegen.build_site(db, str(tmp_path))
+    assert n >= 7
+    home = (tmp_path / "index.html").read_text()
+    assert "Shoei helmet" in home and "&lt;script&gt;" in home and "<script>alert" not in home
+    assert "$1 tractor" not in home                      # premium-only
+    assert "launchpass.com/farm" in home
+    assert (tmp_path / "farm" / "index.html").exists()
+    assert (tmp_path / "store" / "tractorsupply.com.html").exists()
+    assert "https://deals.example/store/revzilla.com.html" in (tmp_path / "sitemap.xml").read_text()
+    assert "Disallow: /go/" in (tmp_path / "robots.txt").read_text()
+
+
+# -- watchdog --------------------------------------------------------------------
+async def test_watchdog_alerts_once_then_reports_fixed(db, channels):
+    now = datetime.now(timezone.utc)
+    await db.kv_set("process_started_at", (now - timedelta(hours=1)).isoformat())
+    await db.record_run(scraped=10, parsed=8, llm_failed=7, new_deals=0)
+    fake = FakeTelegram()
+    async with fake.client() as c:
+        r = await watchdog.run_watchdog(db, now, c)
+        assert "llm" in r["new"]
+        r = await watchdog.run_watchdog(db, now + timedelta(minutes=15), c)
+        assert r["new"] == []                                 # not repeated within 6 h
+        await db.record_run(scraped=10, parsed=8, llm_failed=0, new_deals=3)
+        r = await watchdog.run_watchdog(db, now + timedelta(minutes=30), c)
+        assert "llm" in r["fixed"]
+    assert all(chat == "999" for chat in fake.chats())
+    assert "Gemini" in fake.texts()[0]
+
+
+async def test_watchdog_stalled_and_no_scrapes(db, channels):
+    old = datetime.now(timezone.utc) - timedelta(hours=5)
+    await db.kv_set("process_started_at", (old - timedelta(hours=1)).isoformat())
+    for _ in range(3):
+        await db.record_run(0, 0, 0, 0)
+    problems = await watchdog.find_problems(db, datetime.now(timezone.utc) + timedelta(hours=5))
+    assert {"stalled", "no_scrape", "no_deals"} <= set(problems)
+
+
+async def test_owner_report(db, channels):
+    d = make("tractorsupply.com", "20% off")
+    await db.insert_deal(d)
+    await db.record_click(d.deal_hash, "farm-free-telegram")
+    fake = FakeTelegram()
+    async with fake.client() as c:
+        text = await watchdog.build_report(db, c)
+    assert "Deals found: <b>1</b>" in text and "farm-free-telegram: 1" in text
+    assert "farm free: 42" in text
+
+
+async def test_backup(db, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "backup_dir", str(tmp_path / "bk"))
+    await db.insert_deal(make("revzilla.com", "30% off"))
+    path = await watchdog.backup_db(db, keep=2)
+    con = sqlite3.connect(path)
+    assert con.execute("SELECT COUNT(*) FROM deals").fetchone()[0] == 1
+    con.close()
+
+
+# -- scheduler -------------------------------------------------------------------
+async def test_scheduler_tick_runs_each_job_once(db, channels, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "site_dir", str(tmp_path / "site"))
+    monkeypatch.setattr(settings, "backup_dir", str(tmp_path / "bk"))
+    monkeypatch.setattr(settings, "digest_hour", 18)
+    for v in ("$60 off chainsaw", "40% off boots"):
+        await db.insert_deal(make("tractorsupply.com", v))
+    fake = FakeTelegram()
+    real = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(fake.handler)))
+    # Monday 19:05 local: site + digest + owner report + backup should all run
+    t = datetime(2026, 11, 23, 19, 5, tzinfo=ZoneInfo("America/New_York"))
+    await main.scheduler_tick(db, t)
+    first = len(fake.calls)
+    assert (tmp_path / "site" / "index.html").exists()
+    assert list((tmp_path / "bk").glob("deals-*.db"))
+    assert any("best deals" in x for x in fake.texts())
+    assert any("weekly report" in x for x in fake.texts())
+    await main.scheduler_tick(db, t + timedelta(minutes=1))
+    assert not any("best deals" in x or "weekly report" in x
+                   for x in fake.texts()[first:])                   # no repeats
+
+
+# -- click tracking + migration ----------------------------------------------------
+def test_go_redirect_counts_click(tmp_path, monkeypatch):
+    import asyncio
+    from fastapi.testclient import TestClient
+    import api
+
+    path = str(tmp_path / "go.db")
+    monkeypatch.setattr(settings, "db_path", path)
+    d = make("revzilla.com", "30% off")
+
+    async def seed():
+        async with Database(path) as db:
+            await db.insert_deal(d)
+    asyncio.run(seed())
+    with TestClient(api.app) as c:
+        r = c.get(f"/go/{d.deal_hash[:12]}?c=moto-free-telegram", follow_redirects=False)
+        assert r.status_code == 302 and r.headers["location"].startswith("https://revzilla.com")
+        assert c.get("/go/zzzzzzzzzzzz", follow_redirects=False).status_code == 302
+
+    async def clicks():
+        async with Database(path) as db:
+            return await db.click_stats("2000-01-01")
+    assert asyncio.run(clicks())["by_channel"] == {"moto-free-telegram": 1}
+
+
+async def test_migrates_old_database(tmp_path):
+    path = tmp_path / "old.db"
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE deals (deal_hash TEXT PRIMARY KEY, store_name TEXT NOT NULL, "
+                "store_domain TEXT NOT NULL, promo_code TEXT, discount_value TEXT NOT NULL, "
+                "category TEXT NOT NULL, expiration_date TEXT, source_url TEXT NOT NULL, "
+                "affiliate_url TEXT NOT NULL DEFAULT '', merchant_url TEXT, "
+                "source TEXT NOT NULL DEFAULT '', is_verified INTEGER NOT NULL DEFAULT 0, "
+                "verify_status TEXT NOT NULL DEFAULT 'pending', fail_count INTEGER NOT NULL "
+                "DEFAULT 0, last_checked_at TEXT, created_at TEXT NOT NULL)")
+    con.commit()
+    con.close()
+    async with Database(str(path)) as db:
+        assert await db.insert_deal(make("revzilla.com", "30% off", summary="Helmet"))
+        rows = await db.niche_deals("moto")
+        assert rows[0]["summary"] == "Helmet" and rows[0]["niches"] == ["moto"]
+
+
+# -- GitHub Actions / GitHub Pages mode -----------------------------------------------
+async def test_static_site_for_github_pages(db, channels, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "public_base_url", "https://kyle.github.io/deal-hunter")
+    monkeypatch.setattr(settings, "click_tracking", False)
+    monkeypatch.setattr(settings, "affiliate_skip_in_extension", ["amazon.com"])
+    monkeypatch.setattr(settings, "amazon_tag", "kyle-20")
+    d = make("tractorsupply.com", "20% off", summary="Feed")
+    await db.insert_deal(d)
+    amz = build_deal(ExtractedDeal(store_name="Amazon", store_domain="amazon.com",
+                                   merchant_url="https://www.amazon.com/dp/B01", promo_code=None,
+                                   discount_value="$60 off", category=Category.COUPON,
+                                   expiration_date=None, summary="Stihl chainsaw"), ITEM)
+    amz.niches = match_niches(amz.model_dump(mode="json"))
+    await db.insert_deal(amz)
+    await sitegen.build_site(db, str(tmp_path))
+    home = (tmp_path / "index.html").read_text()
+    assert 'href="/deal-hunter/farm/"' in home and 'href="/farm/"' not in home
+    assert 'href="/deal-hunter/store/tractorsupply.com.html"' in home
+    assert "/go/" not in home and "https://tractorsupply.com" in home      # direct links
+    data = json.loads((tmp_path / "api" / "deals" / "amazon.com.json").read_text())
+    assert data["count"] == 1 and "tag=kyle-20" in data["deals"][0]["affiliate_url"]
+    assert "tag=" not in data["deals"][0]["extension_url"]
+    index = json.loads((tmp_path / "api" / "index.json").read_text())
+    assert index["domains"] == ["amazon.com", "tractorsupply.com"]
+    # channel posts link straight to the store too
+    assert publisher.tracked_link(d.model_dump(mode="json"), "x").startswith("https://tractorsupply.com")
+
+
+async def test_actions_run_once(db, channels, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "site_dir", str(tmp_path / "site"))
+    monkeypatch.setattr(settings, "backup_dir", str(tmp_path / "bk"))
+    monkeypatch.setattr(settings, "verify_enabled", False)
+    monkeypatch.setattr(settings, "click_tracking", False)
+
+    async def fake_scrape(sources):
+        return [RawItem(text="Tractor Supply 20% off code FEED20", url="https://r/1",
+                        source="reddit:r/deals")]
+    monkeypatch.setattr(main, "scrape_all", fake_scrape)
+    fake = FakeTelegram()
+    real = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(fake.handler)))
+
+    from parser import ExtractionResult
+
+    class Extractor:
+        async def extract(self, text):
+            return ExtractionResult(deals=[ExtractedDeal(
+                store_name="Tractor Supply", store_domain="tractorsupply.com",
+                merchant_url=None, promo_code="FEED20", discount_value="20% off",
+                category=Category.COUPON, expiration_date=None, summary="Layer feed")])
+
+    monkeypatch.delenv("FARM_PAID_TELEGRAM", raising=False)     # premium off, like Kyle's setup
+    summary = await main.run_actions_once(db, Extractor())
+    assert summary["new_deals"] == 1
+    assert any("autopilot started" in t for t in fake.texts())
+    assert any("FEED20" in t for t in fake.texts())              # free post went out right away
+    assert (tmp_path / "site" / "api" / "deals" / "tractorsupply.com.json").exists()
+    n = len(fake.calls)
+    await main.run_actions_once(db, Extractor())                  # second run: nothing repeats
+    assert not any("autopilot started" in t or "FEED20" in t for t in fake.texts()[n:])

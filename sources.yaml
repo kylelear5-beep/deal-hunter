@@ -1,0 +1,52 @@
+# Deal Hunter sources. Edit this file to add/remove places to scan.
+# No code changes needed -- just save and the next run picks it up.
+
+# Priority 1: RSS feeds (cheap, rarely blocked)
+rss:
+  - https://slickdeals.net/newsearch.php?mode=frontpage&searcharea=deals&searchin=first&rss=1
+  # Niche keyword searches (farm / ranch / outdoor)
+  - https://slickdeals.net/newsearch.php?q=tractor+supply&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=rural+king&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=chainsaw&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=generator&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=chicken+coop&searcharea=deals&searchin=first&rss=1
+  # Niche keyword searches (motorcycle gear)
+  - https://slickdeals.net/newsearch.php?q=motorcycle&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=revzilla&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=cycle+gear&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=motorcycle+helmet&searcharea=deals&searchin=first&rss=1
+
+# Priority 1: Reddit (uses PRAW if REDDIT_CLIENT_ID is set in .env, otherwise public .json)
+reddit:
+  limit: 25          # newest posts per subreddit per run
+  subreddits:
+    - deals
+    - frugal
+    - churning
+    - freebies
+
+# Priority 2: web pages. mode = auto | static | dynamic
+#   static  -> HTTPX + BeautifulSoup only (fast)
+#   dynamic -> Playwright (stealth) and clicks "Reveal Code" buttons
+#   auto    -> tries static first, switches to dynamic if the page looks JavaScript-rendered
+# Only add sites whose terms allow automated access.
+websites: []
+#  - url: https://www.example-coupon-site.com/store/example.com
+#    mode: auto
+#    max_reveals: 10
+
+# COMMERCIAL_MODE=true in .env -> the paid API only serves deals from these sources.
+# Labels look like: "rss:slickdeals.net", "reddit:r/deals", "web:www.example.com".
+# Only list sources whose terms allow commercial reuse (or that you have an agreement with).
+# Your own Discord/Telegram alerts always use every source.
+commercial_safe_sources: []
+#  - web:www.example.com
+
+# CSS selectors for "Reveal Code" style buttons (used by dynamic mode)
+reveal_selectors:
+  - "button:has-text('Reveal Code')"
+  - "button:has-text('Show Code')"
+  - "button:has-text('Get Code')"
+  - "a:has-text('Show Coupon Code')"
+  - "[data-testid*='reveal']"
+  - ".reveal-code"

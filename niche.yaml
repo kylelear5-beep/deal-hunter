@@ -1,0 +1,112 @@
+# Niches: which deals go to which public channels and website sections.
+# A deal matches a niche if its store is listed under `stores`,
+# OR one of the `keywords` appears in the deal text (whole words, case-insensitive).
+# Channel IDs / webhooks / premium links live in .env as:
+#   <ID>_FREE_TELEGRAM, <ID>_PAID_TELEGRAM, <ID>_FREE_DISCORD, <ID>_PAID_DISCORD, <ID>_PREMIUM_URL
+#   (e.g. FARM_FREE_TELEGRAM=@farmdeals)
+
+niches:
+  - id: farm
+    name: Farm, Ranch & Outdoor Deals
+    emoji: "🚜"
+    stores:
+      - tractorsupply.com
+      - ruralking.com
+      - farmandfleet.com
+      - atwoods.com
+      - murdochs.com
+      - theisens.com
+      - agrisupply.com
+      - northerntool.com
+      - harborfreight.com
+      - cabelas.com
+      - basspro.com
+      - sportsmans.com
+      - mfarmsupply.com
+      - valleyvet.com
+      - chewy.com
+    keywords:
+      - chicken
+      - chickens
+      - coop
+      - poultry
+      - livestock
+      - horse
+      - cattle
+      - goat
+      - hay
+      - feed
+      - fencing
+      - fence
+      - tractor
+      - mower
+      - zero turn
+      - chainsaw
+      - log splitter
+      - generator
+      - pressure washer
+      - wood stove
+      - pellet stove
+      - work boots
+      - carhartt
+      - hunting
+      - fishing
+      - trail camera
+      - deer
+      - utv
+      - atv
+      - trailer
+      - homestead
+      - garden
+      - seed starting
+      - stihl
+      - husqvarna
+      - milwaukee
+      - dewalt
+
+  - id: moto
+    name: Motorcycle Gear Deals
+    emoji: "🏍️"
+    stores:
+      - revzilla.com
+      - cyclegear.com
+      - jpcycles.com
+      - motosport.com
+      - denniskirk.com
+      - partzilla.com
+      - rockymountainatvmc.com
+      - lockhartphillipsusa.com
+      - twistedthrottle.com
+      - sena.com
+      - cardosystems.com
+      - aerostich.com
+      - klim.com
+    keywords:
+      - motorcycle
+      - motorbike
+      - riding jacket
+      - riding pants
+      - riding gloves
+      - riding boots
+      - helmet
+      - full face
+      - modular helmet
+      - sena
+      - cardo
+      - intercom
+      - shoei
+      - arai
+      - hjc
+      - bell helmet
+      - alpinestars
+      - dainese
+      - rev'it
+      - revit
+      - klim
+      - saddlebag
+      - saddlebags
+      - motorcycle tire
+      - dirt bike
+      - adventure bike
+      - harley
+      - goldwing

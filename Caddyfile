@@ -1,0 +1,5 @@
+# DOMAIN comes from .env (e.g. DOMAIN=farmanddeals.com). Caddy gets the HTTPS certificate itself.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy deal-hunter:8000
+}
