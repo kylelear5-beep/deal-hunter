@@ -3,8 +3,8 @@
 
 # Priority 1: RSS feeds (cheap, rarely blocked)
 rss:
-  # Niche keyword searches first, so the AI reads them before general deals.
-  # Farm / ranch / tools / outdoor
+  - https://slickdeals.net/newsearch.php?mode=frontpage&searcharea=deals&searchin=first&rss=1
+  # Niche keyword searches (farm / ranch / tools / outdoor)
   - https://slickdeals.net/newsearch.php?q=tractor+supply&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=rural+king&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=harbor+freight&searcharea=deals&searchin=first&rss=1
@@ -14,54 +14,37 @@ rss:
   - https://slickdeals.net/newsearch.php?q=chainsaw&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=generator&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=chicken+coop&searcharea=deals&searchin=first&rss=1
-  # Motorcycle gear
+  # Niche keyword searches (motorcycle gear)
   - https://slickdeals.net/newsearch.php?q=motorcycle&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=revzilla&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=cycle+gear&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=motosport&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=motorcycle+helmet&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=shoei&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=alpinestars&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=sena&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=cardo&searcharea=deals&searchin=first&rss=1
-  - https://slickdeals.net/newsearch.php?q=motosport&searcharea=deals&searchin=first&rss=1
-  # General front page last
-  - https://slickdeals.net/newsearch.php?mode=frontpage&searcharea=deals&searchin=first&rss=1
 
-# Priority 1: Reddit (uses PRAW if REDDIT_CLIENT_ID is set in .env, otherwise public .json)
-# NOTE: Reddit blocks GitHub's servers without API keys (REDDIT_CLIENT_ID / SECRET).
+# Priority 1: Reddit (uses public .json when REDDIT_CLIENT_ID is blank)
 reddit:
   limit: 15          # newest posts per subreddit per run
   subreddits:
-    - deals
-    - freebies
-    # Moto
     - motorcycledeals
     - motorcyclegear
-    # Farm / tools / outdoor
     - ToolDealsDaily
-    - harborfreight
+    - ToolDeals
     - MilwaukeeTool
+    - harborfreight
     - outdoordeals
     - HuntingGearDeals
+    - deals
+    - freebies
 
 # Priority 2: web pages. mode = auto | static | dynamic
-#   static  -> HTTPX + BeautifulSoup only (fast)
-#   dynamic -> Playwright (stealth) and clicks "Reveal Code" buttons
-#   auto    -> tries static first, switches to dynamic if the page looks JavaScript-rendered
-# Only add sites whose terms allow automated access.
 websites: []
-#  - url: https://www.example-coupon-site.com/store/example.com
-#    mode: auto
-#    max_reveals: 10
 
-# COMMERCIAL_MODE=true in .env -> the paid API only serves deals from these sources.
-# Labels look like: "rss:slickdeals.net", "reddit:r/deals", "web:www.example.com".
-# Only list sources whose terms allow commercial reuse (or that you have an agreement with).
-# Your own Discord/Telegram alerts always use every source.
 commercial_safe_sources: []
-#  - web:www.example.com
 
-# CSS selectors for "Reveal Code" style buttons (used by dynamic mode)
 reveal_selectors:
   - "button:has-text('Reveal Code')"
   - "button:has-text('Show Code')"
