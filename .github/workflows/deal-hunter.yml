@@ -13,6 +13,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  actions: write     # lets each run start the next one (see the last step)
 
 concurrency:
   group: deal-hunter
@@ -21,7 +22,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -34,6 +35,9 @@ jobs:
       LOOP_MINUTES: "30"
       PYTHONUTF8: "1"
     steps:
+      - name: Note start time
+        run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
@@ -112,3 +116,21 @@ jobs:
 
       - id: deploy
         uses: actions/deploy-pages@v4
+
+      # GitHub's built-in schedule can be late or skipped, so each run also starts the
+      # next one, 30 minutes after it began. Cancel a run on GitHub to stop the chain.
+      - name: Start the next run in 30 minutes
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          wait=$(( RUN_STARTED + 1800 - $(date +%s) ))
+          [ "$wait" -gt 0 ] && sleep "$wait"
+          waiting=$(gh run list -R "$GITHUB_REPOSITORY" -w deal-hunter.yml --json status,databaseId \
+            -q "[.[] | select((.status==\"queued\" or .status==\"waiting\" or .status==\"pending\" or .status==\"in_progress\") and .databaseId != ${{ github.run_id }})] | length")
+          if [ "${waiting:-0}" -gt 0 ]; then
+            echo "Another run is already lined up; not starting a second one."
+          else
+            gh workflow run deal-hunter.yml -R "$GITHUB_REPOSITORY" --ref main
+            echo "Next run started."
+          fi
