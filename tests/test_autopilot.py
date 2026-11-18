@@ -487,3 +487,9 @@ async def test_rss_links_are_full_urls_with_click_tracking(db, channels, tmp_pat
     root = ET.fromstring((tmp_path / "rss.xml").read_text(encoding="utf-8"))
     link = root.find("./channel/item/link").text
     assert link.startswith("https://deals.example/sub/go/")
+
+
+async def test_static_files_are_published(db, channels, tmp_path):
+    await sitegen.build_site(db, str(tmp_path))
+    f = tmp_path / "google1630b45784baffac.html"
+    assert f.read_text() == "google-site-verification: google1630b45784baffac.html"

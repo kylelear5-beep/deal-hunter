@@ -389,5 +389,13 @@ async def build_site(db, out_dir: str | None = None) -> int:
         written += 1
     _write(root, "robots.txt", robots)
     written += 1
+
+    # Files to publish as-is, e.g. Google/Bing site-ownership files: static/<name> -> /<name>
+    static = Path(__file__).resolve().parent / "static"
+    if static.is_dir():
+        for f in static.iterdir():
+            if f.is_file() and not f.name.startswith("."):
+                (root / f.name).write_bytes(f.read_bytes())
+                written += 1
     log.info("Website rebuilt: %d files", written)
     return written
