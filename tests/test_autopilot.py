@@ -493,3 +493,15 @@ async def test_static_files_are_published(db, channels, tmp_path):
     await sitegen.build_site(db, str(tmp_path))
     f = tmp_path / "google1630b45784baffac.html"
     assert f.read_text() == "google-site-verification: google1630b45784baffac.html"
+
+
+async def test_tiktok_scripts_page_generated(db, channels, tmp_path):
+    await db.insert_deal(make("tractorsupply.com", "$60 off", summary="DeWalt chainsaw"))
+    await db.insert_deal(make("tractorsupply.com", "$1 tractor (was $2000)", Category.PRICE_ERROR, None))
+    await sitegen.build_site(db, str(tmp_path))
+    scripts_html = (tmp_path / "scripts.html").read_text(encoding="utf-8")
+    assert 'name="robots" content="noindex,nofollow"' in scripts_html
+    assert "DeWalt chainsaw" in scripts_html
+    assert "$1 tractor" not in scripts_html
+    assert "Disallow: /scripts.html" in (tmp_path / "robots.txt").read_text(encoding="utf-8")
+    assert "scripts.html" not in (tmp_path / "sitemap.xml").read_text(encoding="utf-8")

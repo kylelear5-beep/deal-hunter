@@ -132,13 +132,13 @@ def card(deal: dict) -> str:
     return "".join(parts)
 
 
-def page(title: str, body: str, description: str = "") -> str:
+def page(title: str, body: str, description: str = "", extra_head: str = "") -> str:
     niches = load_niches()
     nav = "".join(f'<a href="{u("/" + n.id + "/")}">{e(n.emoji)} {e(n.name)}</a>' for n in niches)
     year = datetime.now().year
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{e(title)}</title><meta name="description" content="{e(description or title, quote=True)}">
+<title>{e(title)}</title><meta name="description" content="{e(description or title, quote=True)}">{extra_head}
 <link rel="alternate" type="application/rss+xml" title="{e(settings.site_name)} RSS" href="{u('/rss.xml')}">
 <style>{CSS}</style>{analytics_html()}</head><body>
 <header><div class="wrap"><a class="logo" href="{u("/")}">🏷️ {e(settings.site_name)}</a>
@@ -255,6 +255,50 @@ def rss_xml(deals: list[dict]) -> str:
         + "".join(items)
         + '</channel></rss>'
     )
+
+
+def tiktok_scripts_html(deals: list[dict]) -> str:
+    """Mobile-friendly short-video scripts (TikTok / Shorts / Reels) for today's top deals."""
+    cards = []
+    for d in deals[:6]:
+        item = d.get("summary") or f"{d['store_name']} deal"
+        disc = d["discount_value"]
+        code_line = f" Use code {d['promo_code']} at checkout." if d.get("promo_code") else ""
+        hook = f"{d['store_name']}: {disc} on {item}"
+        spoken = (f"Heads up if you've been eyeing {item} ? {d['store_name']} currently has it "
+                  f"for {disc}.{code_line} I put the direct link on {settings.site_name}.")
+        tags = "#deals #pricealert #clearance #savingmoney"
+        niches = set(d.get("niches") or [])
+        if "farm" in niches:
+            tags += " #homestead #tractorsupply"
+        if "moto" in niches:
+            tags += " #motorcycle #motorcyclegear"
+        if "tools" in niches:
+            tags += " #tools #tooldeals"
+        if "auto" in niches:
+            tags += " #truck #carmods"
+        if "electronics" in niches:
+            tags += " #techdeals #electronics"
+        caption = f"{hook} ? {d.get('promo_code') or 'Link in bio / Telegram'} {tags}"
+        full_copy = f"HOOK (on screen):\n{hook}\n\nSAY THIS:\n{spoken}\n\nCAPTION:\n{caption}"
+        cards.append(
+            f'<div class="card">'
+            f'<div class="store">{e(d["store_name"])} · {e(disc)}</div>'
+            f'<p><b>On-screen hook:</b> {e(hook)}</p>'
+            f'<p><b>15-sec script:</b> {e(spoken)}</p>'
+            f'<p class="meta"><b>Caption:</b> {e(caption)}</p>'
+            f'<button type="button" class="copy" style="padding:10px 14px;margin-top:8px" '
+            f'data-code="{e(full_copy, quote=True)}">Copy script &amp; caption</button>'
+            f'<a class="btn" href="{e(go_link(d), quote=True)}" rel="nofollow sponsored">Open deal →</a>'
+            f'</div>'
+        )
+    grid = '<div class="grid">' + "".join(cards) + "</div>" if cards else '<p class="empty">No deals yet.</p>'
+    body = ("<h1>Short-video deal scripts</h1>"
+            "<p class='lead'>Ready-to-record 15-second scripts for TikTok, YouTube Shorts, and Reels.</p>"
+            + grid)
+    return page(f"Video scripts | {settings.site_name}", body,
+                "Short-video deal scripts",
+                extra_head='<meta name="robots" content="noindex,nofollow">')
 
 
 def _write(root: Path, rel: str, content: str) -> None:
@@ -375,9 +419,13 @@ async def build_site(db, out_dir: str | None = None) -> int:
     _write(root, "rss.xml", rss_xml(rss_deals))
     written += 1
 
+    top_video_deals = sorted(rss_deals, key=value_score, reverse=True)
+    _write(root, "scripts.html", tiktok_scripts_html(top_video_deals))
+    written += 1
+
     base = settings.public_base_url
     bp = base_path()
-    robots = f"User-agent: *\nAllow: /\nDisallow: {bp}/go/\nDisallow: {bp}/api/\n"
+    robots = f"User-agent: *\nAllow: /\nDisallow: {bp}/go/\nDisallow: {bp}/api/\nDisallow: {bp}/scripts.html\n"
     if base:
         robots += f"Sitemap: {base}/sitemap.xml\n"
         today = datetime.now(timezone.utc).date().isoformat()
