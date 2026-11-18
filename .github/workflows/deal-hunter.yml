@@ -30,7 +30,6 @@ jobs:
       BACKUP_DIR: data/backups
       SITE_DIR: site
       CLICK_TRACKING: "false"
-      MAX_AI_ITEMS_PER_RUN: "100"   # ~12 min per run; the run step stops at 18
       PUBLIC_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
       LOOP_MINUTES: "30"
       PYTHONUTF8: "1"
