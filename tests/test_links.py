@@ -97,3 +97,45 @@ async def test_backfill_older_deals(db, monkeypatch):
     rows, _ = await db.query_deals(verified_only=False, limit=5)
     assert rows[0]["merchant_url"] == "https://www.amazon.com/dp/B0DD"
     assert await lr.backfill_store_links(db) == {"tried": 0, "found": 0}   # done, not retried
+
+
+def test_store_search_fallback_and_labels(monkeypatch):
+    from affiliate import best_link, link_kind, store_search
+    from config import settings
+    from sitegen import card
+    monkeypatch.setattr(settings, "ebay_campid", "5339253664")
+    monkeypatch.setattr(settings, "click_tracking", False)
+    base = {"deal_hash": "h" * 64, "source_url": "https://slickdeals.net/f/1", "merchant_url": None,
+            "store_name": "eBay", "discount_value": "$50 off", "category": "COUPON",
+            "created_at": "2026-11-18T10:00:00+00:00", "niches": []}
+    ebay = {**base, "store_domain": "ebay.com", "summary": "Shoei RF-1400 Helmet $493 w/ code"}
+    assert link_kind(ebay) == "search"
+    assert best_link(ebay).startswith("https://www.ebay.com/sch/i.html?_nkw=Shoei+RF-1400+Helmet")
+    assert "campid=5339253664" in best_link(ebay)
+    html = card(ebay)
+    assert "Search eBay for this item" in html and "Search eBay ↗" in html
+    odd = {**base, "store_domain": "scheels.com", "summary": "Yeti cooler"}
+    assert store_search(odd) is None and best_link(odd) == base["source_url"]
+    assert "Opens the deal post" in card(odd) and "Get deal ↗" in card(odd)
+    item = {**ebay, "merchant_url": "https://www.ebay.com/itm/1", "affiliate_url": "https://www.ebay.com/itm/1?campid=1"}
+    assert link_kind(item) == "product" and "Search eBay" not in card(item)
+
+
+async def test_backfill_uses_browser_when_plain_lookup_blocked(db, monkeypatch):
+    from datetime import datetime, timezone
+    from parser import Category, Deal
+    await db.insert_deal(Deal(deal_hash="b" * 64, store_name="Amazon", store_domain="amazon.com",
+                              discount_value="$5 off", category=Category.COUPON,
+                              source_url="https://www.dealnews.com/x/22408374.html",
+                              created_at=datetime.now(timezone.utc), summary="Mic"))
+    real = httpx.AsyncClient
+    monkeypatch.setattr(lr.httpx, "AsyncClient", lambda *a, **k: real(
+        transport=httpx.MockTransport(lambda req: httpx.Response(403))))
+    seen = []
+
+    async def fake_browser(links):
+        seen.extend(links)
+        return {b: ("https://www.amazon.com/dp/B0DD", "ok") for b in links}
+    monkeypatch.setattr(lr, "browser_store_pages", fake_browser)
+    assert await lr.backfill_store_links(db) == {"tried": 1, "found": 1}
+    assert seen == ["https://www.dealnews.com/lw/click.html?20,2,22408374"]

@@ -76,10 +76,20 @@ def _landing(resp: httpx.Response) -> str:
     return m.group(1) if m else ""
 
 
-async def find_store_page(client: httpx.AsyncClient, buy_link: str) -> Optional[str]:
-    """Follow a deal site's buy link to the store page. Returns a clean URL or None."""
+def _accept(url: str) -> tuple[Optional[str], str]:
+    if not url or not url.startswith(("http://", "https://")):
+        return None, "no redirect"
+    if is_deal_site(url):
+        return None, f"stuck on {urlparse(url).netloc}"
+    if not urlparse(url).path.strip("/"):
+        return None, "store homepage only"
+    return clean_url(url), "ok"
+
+
+async def find_store_page_why(client: httpx.AsyncClient, buy_link: str) -> tuple[Optional[str], str]:
+    """Follow a deal site's buy link to the store page. Returns (clean URL or None, reason)."""
     if not buy_link:
-        return None
+        return None, "no buy link"
     try:
         resp = await client.get(buy_link, follow_redirects=True, timeout=12,
                                 headers={"User-Agent": random.choice(UAS)})
@@ -88,14 +98,17 @@ async def find_store_page(client: httpx.AsyncClient, buy_link: str) -> Optional[
             resp = await client.get(url, follow_redirects=True, timeout=12,
                                     headers={"User-Agent": random.choice(UAS)})
             url = _landing(resp)
+        if not url and resp.status_code >= 400:
+            return None, f"HTTP {resp.status_code} at {resp.url.host}"
+    except httpx.TimeoutException:
+        return None, "timeout"
     except (httpx.HTTPError, ValueError) as exc:
-        log.debug("Store link lookup failed for %s: %s", buy_link, exc)
-        return None
-    if not url or not url.startswith(("http://", "https://")) or is_deal_site(url):
-        return None
-    if not urlparse(url).path.strip("/"):
-        return None                              # store homepage only -> not the item
-    return clean_url(url)
+        return None, f"error {type(exc).__name__}"
+    return _accept(url)
+
+
+async def find_store_page(client: httpx.AsyncClient, buy_link: str) -> Optional[str]:
+    return (await find_store_page_why(client, buy_link))[0]
 
 
 def matches_store(url: str, store_domain: str) -> bool:
@@ -103,19 +116,78 @@ def matches_store(url: str, store_domain: str) -> bool:
     return bool(store_domain) and host_matches(host, store_domain)
 
 
-async def fill_store_link(client: httpx.AsyncClient, deal: dict, click_link: str = "") -> bool:
-    """If the deal has no product page yet, look it up and fill merchant_url/affiliate_url.
-    Works on a dict (saved deal) — returns True when it found one."""
-    from affiliate import build_affiliate_url, has_product_link
-    if has_product_link(deal):
-        return False
-    link = await find_store_page(client, buy_link_for(deal.get("source_url", ""), click_link))
-    if not link or not matches_store(link, deal.get("store_domain", "")):
-        return False
+def _set_link(deal: dict, link: Optional[str], why: str) -> tuple[bool, str]:
+    from affiliate import build_affiliate_url
+    if not link:
+        return False, why
+    if not matches_store(link, deal.get("store_domain", "")):
+        return False, f"went to {urlparse(link).netloc}, not {deal.get('store_domain')}"
     deal["merchant_url"] = link
     deal["affiliate_url"] = build_affiliate_url(link, deal.get("deal_hash", ""),
                                                 deal.get("store_domain", ""))
-    return True
+    return True, "ok"
+
+
+async def fill_store_link_why(client: httpx.AsyncClient, deal: dict,
+                              click_link: str = "") -> tuple[bool, str]:
+    from affiliate import has_product_link
+    if has_product_link(deal):
+        return False, "already has one"
+    link, why = await find_store_page_why(client, buy_link_for(deal.get("source_url", ""),
+                                                                click_link))
+    return _set_link(deal, link, why)
+
+
+async def fill_store_link(client: httpx.AsyncClient, deal: dict, click_link: str = "") -> bool:
+    """If the deal has no product page yet, look it up and fill merchant_url/affiliate_url.
+    Works on a dict (saved deal) — returns True when it found one."""
+    return (await fill_store_link_why(client, deal, click_link))[0]
+
+
+async def browser_store_pages(buy_links: list[str], wait_ms: int = 15000) -> dict[str, tuple]:
+    """Open buy links in the bot's real browser (deal sites often block plain lookups).
+    Returns {buy_link: (url or None, reason)}. Missing browser -> every link fails softly."""
+    out: dict[str, tuple] = {}
+    if not buy_links:
+        return out
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        return {b: (None, "browser not installed") for b in buy_links}
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=True)
+        try:
+            context = await browser.new_context(user_agent=UAS[0], locale="en-US",
+                                                viewport={"width": 1366, "height": 900})
+            try:
+                from playwright_stealth import Stealth
+                await Stealth().apply_stealth_async(context)
+            except Exception:  # noqa: BLE001 - stealth is optional
+                pass
+            await context.route("**/*", lambda r: r.abort()
+                                if r.request.resource_type in ("image", "media", "font")
+                                else r.continue_())
+            page = await context.new_page()
+            for b in buy_links:
+                try:
+                    await page.goto(b, wait_until="domcontentloaded", timeout=wait_ms)
+                    if "slickdeals.net/f/" in b:            # a post: take its buy button
+                        href = await page.evaluate(
+                            "() => (document.querySelector('a[href*=\"/click?\"]')||{}).href||''")
+                        if not href:
+                            out[b] = (None, "no buy button on post")
+                            continue
+                        await page.goto(href, wait_until="domcontentloaded", timeout=wait_ms)
+                    try:
+                        await page.wait_for_url(lambda u: not is_deal_site(u), timeout=wait_ms)
+                    except Exception:  # noqa: BLE001 - judged below
+                        pass
+                    out[b] = _accept(page.url)
+                except Exception as exc:  # noqa: BLE001
+                    out[b] = (None, f"browser {type(exc).__name__}")
+        finally:
+            await browser.close()
+    return out
 
 
 async def click_link_from_post(client: httpx.AsyncClient, post_url: str) -> str:
@@ -134,11 +206,16 @@ async def click_link_from_post(client: httpx.AsyncClient, post_url: str) -> str:
     return ""
 
 
-async def backfill_store_links(db, limit: int = 40) -> dict:
-    """Give older saved deals a product link, a few per run. Each deal is tried twice at most."""
+async def backfill_store_links(db, limit: int = 40, browser_limit: int = 30,
+                               use_browser: bool = True) -> dict:
+    """Give saved deals without a product link one, a few per run. Plain lookup first,
+    then the real browser for the ones that failed. Each deal is tried twice at most."""
     import json
+    from collections import Counter
     from datetime import date
-    tries = json.loads(await db.kv_get("store_link_tries", "{}") or "{}")
+    from affiliate import has_product_link
+    key = "store_link_tries_v2"
+    tries = json.loads(await db.kv_get(key, "{}") or "{}")
     cur = await db.conn.execute(
         "SELECT deal_hash, store_domain, source_url, merchant_url FROM deals "
         "WHERE (expiration_date IS NULL OR expiration_date >= ?) AND verify_status != 'flagged' "
@@ -146,10 +223,15 @@ async def backfill_store_links(db, limit: int = 40) -> dict:
         "ORDER BY created_at DESC", (date.today().isoformat(),))
     rows = await cur.fetchall()
     live = {r[0] for r in rows}
-    from affiliate import has_product_link
     todo = [r for r in rows if not has_product_link({"merchant_url": r[3]})
             and tries.get(r[0], 0) < 2][:limit]
-    found = 0
+    found, reasons, retry = 0, Counter(), []
+
+    async def save(deal: dict) -> None:
+        await db.conn.execute(
+            "UPDATE deals SET merchant_url = ?, affiliate_url = ? WHERE deal_hash = ?",
+            (deal["merchant_url"], deal["affiliate_url"], deal["deal_hash"]))
+
     async with httpx.AsyncClient() as client:
         for h, domain, src, merchant in todo:
             tries[h] = tries.get(h, 0) + 1
@@ -157,18 +239,39 @@ async def backfill_store_links(db, limit: int = 40) -> dict:
                     "merchant_url": merchant}
             try:
                 click = await click_link_from_post(client, src)
-                ok = await fill_store_link(client, deal, click)
+                ok, why = await fill_store_link_why(client, deal, click)
             except Exception as exc:  # noqa: BLE001
-                log.debug("Backfill lookup failed: %s", exc)
-                ok = False
+                ok, why, click = False, f"error {type(exc).__name__}", ""
             if ok:
                 found += 1
-                await db.conn.execute(
-                    "UPDATE deals SET merchant_url = ?, affiliate_url = ? WHERE deal_hash = ?",
-                    (deal["merchant_url"], deal["affiliate_url"], h))
+                await save(deal)
+            else:
+                reasons[why] += 1
+                buy = buy_link_for(src, click)
+                if buy or "slickdeals.net" in src:
+                    retry.append((deal, buy or src))
+
+    browser_found = 0
+    if use_browser and retry:
+        retry = retry[:browser_limit]
+        try:
+            results = await browser_store_pages([b for _, b in retry])
+        except Exception as exc:  # noqa: BLE001 - browser problems must never stop a run
+            log.warning("Browser link lookup failed: %s", exc)
+            results = {}
+        for deal, buy in retry:
+            link, why = results.get(buy, (None, "browser not run"))
+            ok, why = _set_link(deal, link, why)
+            if ok:
+                browser_found += 1
+                await save(deal)
+            else:
+                reasons["browser: " + why] += 1
     await db.conn.commit()
     tries = {h: n for h, n in tries.items() if h in live}          # forget gone deals
-    await db.kv_set("store_link_tries", json.dumps(tries))
+    await db.kv_set(key, json.dumps(tries))
     if todo:
-        log.info("Store links for older deals: %d found of %d tried", found, len(todo))
-    return {"tried": len(todo), "found": found}
+        log.info("Store links: %d found plainly + %d with the browser, of %d tried. "
+                 "Why the rest failed: %s", found, browser_found, len(todo),
+                 dict(reasons.most_common(8)))
+    return {"tried": len(todo), "found": found + browser_found}

@@ -8,7 +8,8 @@ Unmatched stores keep their cleaned link -- nothing breaks.
 """
 from __future__ import annotations
 
-from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
+import re
+from urllib.parse import parse_qsl, quote, quote_plus, urlencode, urlparse, urlunparse
 
 from config import settings
 
@@ -97,11 +98,52 @@ def has_product_link(deal: dict) -> bool:
     return bool(url) and urlparse(url if "://" in url else "https://" + url).path.strip("/") != ""
 
 
+# Store search pages, used when we know the store but not the exact product page.
+# Each one was checked in a real browser before adding it.
+STORE_SEARCH = {
+    "amazon.com": ("Amazon", "https://www.amazon.com/s?k={q}"),
+    "ebay.com": ("eBay", "https://www.ebay.com/sch/i.html?_nkw={q}"),
+    "walmart.com": ("Walmart", "https://www.walmart.com/search?q={q}"),
+    "target.com": ("Target", "https://www.target.com/s?searchTerm={q}"),
+    "bestbuy.com": ("Best Buy", "https://www.bestbuy.com/site/searchpage.jsp?st={q}"),
+    "homedepot.com": ("Home Depot", "https://www.homedepot.com/s/{q}"),
+    "costco.com": ("Costco", "https://www.costco.com/CatalogSearch?keyword={q}"),
+    "newegg.com": ("Newegg", "https://www.newegg.com/p/pl?d={q}"),
+    "revzilla.com": ("RevZilla", "https://www.revzilla.com/search?query={q}"),
+}
+_SEARCH_NOISE = re.compile(r"\$[\d.,]+|\b\d+% off\b|\bw/.*$|\bfree shipping\b|\bprime members?:?",
+                           re.IGNORECASE)
+
+
+def store_search(deal: dict) -> tuple[str, str] | None:
+    """(store label, search URL with our affiliate tag) for a known store, else None."""
+    domain = (deal.get("store_domain") or "").lower()
+    hit = next((v for d, v in STORE_SEARCH.items() if host_matches(domain, d)), None)
+    words = _SEARCH_NOISE.sub(" ", deal.get("summary") or "")
+    words = " ".join(re.sub(r"[^\w\s'&.-]", " ", words).split()[:10])
+    if not hit or len(words) < 4:
+        return None
+    label, template = hit
+    url = template.format(q=quote_plus(words) if "{q}" not in template.split("?")[0]
+                          else quote(words))
+    return label, build_affiliate_url(url, deal.get("deal_hash", ""), domain)
+
+
+def link_kind(deal: dict) -> str:
+    """'product', 'search' or 'post' — where best_link sends people."""
+    if has_product_link(deal):
+        return "product"
+    return "search" if store_search(deal) else "post"
+
+
 def best_link(deal: dict) -> str:
     """Where a shopper should land: the product page (with our affiliate tag) when we know it,
-    otherwise the original deal post (it shows the exact item), never just a store homepage."""
+    then the store's search for the item, then the original deal post. Never a homepage."""
     if has_product_link(deal):
         return deal.get("affiliate_url") or clean_url(deal["merchant_url"])
+    search = store_search(deal)
+    if search:
+        return search[1]
     src = deal.get("source_url") or ""
     if src.startswith(("http://", "https://")):
         return src

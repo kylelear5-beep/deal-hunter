@@ -332,15 +332,16 @@ async def run_actions_once(db, extractor) -> dict:
     except Exception as exc:  # noqa: BLE001 - a cleanup problem must never stop a run
         log.warning("Re-check of saved deals failed: %s", exc)
     try:
-        from linkresolve import backfill_store_links
-        await backfill_store_links(db)
-    except Exception as exc:  # noqa: BLE001 - link lookups must never stop a run
-        log.warning("Store link backfill failed: %s", exc)
-    try:
         summary = await run_pipeline(db, make_dispatcher(), extractor)
     except Exception as exc:  # noqa: BLE001 - still post, build the site and run the watchdog
         log.exception("Pipeline run failed: %s", exc)
         await db.record_run(0, 0, 0, 0, error=str(exc)[:300])
+    # After the scan, so this run's new deals get their store page too.
+    try:
+        from linkresolve import backfill_store_links
+        await backfill_store_links(db)
+    except Exception as exc:  # noqa: BLE001 - link lookups must never stop a run
+        log.warning("Store link backfill failed: %s", exc)
     # Passing the local time forces the watchdog to run on every Actions run.
     await scheduler_tick(db, datetime.now(ZoneInfo(settings.timezone)))
     from sitegen import build_site

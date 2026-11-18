@@ -15,7 +15,7 @@ from email.utils import format_datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-from affiliate import best_link, has_product_link, plain_url_for_extension
+from affiliate import best_link, has_product_link, plain_url_for_extension, store_search
 from alerts import CATEGORY_STYLE, DISCLOSURE, deal_label, value_score
 from config import settings
 from niches import load_niches
@@ -233,7 +233,10 @@ def card(deal: dict) -> str:
              f'<div class="value">{e(deal["discount_value"])}</div>']
     if deal.get("expiration_date"):
         parts.append(f'<div class="meta">Ends {e(str(deal["expiration_date"]))}</div>')
-    if not has_product_link(deal) and not settings.click_tracking:
+    search = None if has_product_link(deal) else store_search(deal)
+    if search:
+        parts.append(f'<div class="meta">Search {e(search[0])} for this item</div>')
+    elif not has_product_link(deal) and not settings.click_tracking:
         host = urlparse(link).netloc.removeprefix("www.")
         if host and host != deal["store_domain"]:
             parts.append(f'<div class="meta">Opens the deal post on {e(host)}</div>')
@@ -243,7 +246,8 @@ def card(deal: dict) -> str:
                      f'title="Copy code">{e(code)} ⧉</button>')
     parts.append('<button class="save" type="button">☆ Save</button>'
                  f'<a class="btn" href="{e(link, quote=True)}" rel="nofollow sponsored" '
-                 'target="_blank">Get deal ↗</a></div></article>')
+                 f'target="_blank">{"Search " + e(search[0]) if search else "Get deal"} ↗</a>'
+                 '</div></article>')
     return "".join(parts)
 
 
