@@ -265,7 +265,7 @@ def tiktok_scripts_html(deals: list[dict]) -> str:
         disc = d["discount_value"]
         code_line = f" Use code {d['promo_code']} at checkout." if d.get("promo_code") else ""
         hook = f"{d['store_name']}: {disc} on {item}"
-        spoken = (f"Heads up if you've been eyeing {item} ? {d['store_name']} currently has it "
+        spoken = (f"Heads up if you've been eyeing {item}: {d['store_name']} currently has it "
                   f"for {disc}.{code_line} I put the direct link on {settings.site_name}.")
         tags = "#deals #pricealert #clearance #savingmoney"
         niches = set(d.get("niches") or [])
@@ -279,7 +279,7 @@ def tiktok_scripts_html(deals: list[dict]) -> str:
             tags += " #truck #carmods"
         if "electronics" in niches:
             tags += " #techdeals #electronics"
-        caption = f"{hook} ? {d.get('promo_code') or 'Link in bio / Telegram'} {tags}"
+        caption = f"{hook} - {d.get('promo_code') or 'Link in bio / Telegram'} {tags}"
         full_copy = f"HOOK (on screen):\n{hook}\n\nSAY THIS:\n{spoken}\n\nCAPTION:\n{caption}"
         cards.append(
             f'<div class="card">'
