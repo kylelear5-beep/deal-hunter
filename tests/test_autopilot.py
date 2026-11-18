@@ -505,3 +505,15 @@ async def test_tiktok_scripts_page_generated(db, channels, tmp_path):
     assert "$1 tractor" not in scripts_html
     assert "Disallow: /scripts.html" in (tmp_path / "robots.txt").read_text(encoding="utf-8")
     assert "scripts.html" not in (tmp_path / "sitemap.xml").read_text(encoding="utf-8")
+
+
+async def test_modern_dealhunter_ui_elements(db, channels, tmp_path):
+    await db.insert_deal(make("tractorsupply.com", "20% off", summary="Chicken feed", code="CHICK20"))
+    await db.insert_deal(make("tractorsupply.com", "$15 off", summary="Coop heater"))
+    await sitegen.build_site(db, str(tmp_path))
+    home = (tmp_path / "index.html").read_text(encoding="utf-8")
+    farm = (tmp_path / "farm" / "index.html").read_text(encoding="utf-8")
+    assert 'class="dept-card"' in home
+    assert "Top Promo Codes" in home and "CHICK20" in home
+    assert 'id="dh-drawer"' in home and 'id="dh-modal"' in home
+    assert 'id="store-filter"' in farm and 'class="btn-save"' in farm

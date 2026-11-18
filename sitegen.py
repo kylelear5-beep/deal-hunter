@@ -1,7 +1,7 @@
-"""Auto-generated public deals website (static HTML, rebuilt every hour).
+"""Auto-generated public deals website (static HTML, rebuilt every run).
 
 Pages: / (home), /<niche>/ (one per niche), /store/<domain>.html, /about.html,
-/privacy.html, /sitemap.xml, /robots.txt. Served by api.py from SITE_DIR.
+/privacy.html, /rss.xml, /scripts.html (unlisted), /sitemap.xml, /robots.txt.
 """
 from __future__ import annotations
 
@@ -23,66 +23,335 @@ from niches import load_niches
 log = logging.getLogger("sitegen")
 e = html.escape
 
+STORE_COLORS = {
+    "homedepot.com": "#ea580c",
+    "tractorsupply.com": "#991b1b",
+    "ruralking.com": "#b91c1c",
+    "harborfreight.com": "#dc2626",
+    "northerntool.com": "#1e3a8a",
+    "acmetools.com": "#b91c1c",
+    "lowes.com": "#1e40af",
+    "revzilla.com": "#18181b",
+    "cyclegear.com": "#18181b",
+    "motosport.com": "#0f172a",
+    "amazon.com": "#0f172a",
+    "bestbuy.com": "#1d4ed8",
+    "walmart.com": "#1d4ed8",
+    "target.com": "#dc2626",
+    "newegg.com": "#1e3a8a",
+    "ebay.com": "#0369a1",
+}
+
 CSS = """
-:root{--bg:#0b0b0b;--card:#1a1a1a;--text:#fff;--muted:#d0d0d0;--accent:#ffd400;--border:#5a5a5a}
+:root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--muted:#64748b;--blue:#1d4ed8;
+  --blue-soft:#eff6ff;--green:#059669;--green-soft:#ecfdf5;--amber:#d97706;
+  --amber-soft:#fffbeb;--red:#dc2626;--border:#e2e8f0}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:18px/1.5 "Segoe UI",Arial,sans-serif}
-a{color:var(--accent)}
-.wrap{max-width:980px;margin:0 auto;padding:0 16px}
-header{border-bottom:2px solid var(--border);padding:18px 0}
-header .wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-.logo{font-size:26px;font-weight:800;color:var(--text);text-decoration:none}
-nav{display:flex;flex-wrap:wrap;gap:10px 16px}
-nav a{font-weight:700;text-decoration:none;font-size:17px}
-h1{font-size:32px;margin:26px 0 6px} h2{font-size:26px;margin:34px 0 12px}
-.lead{color:var(--muted);font-size:19px;margin:0 0 18px}
-.premium{display:inline-block;background:var(--accent);color:#000;font-weight:800;
-  padding:12px 18px;border-radius:10px;text-decoration:none;margin:6px 0 10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:14px}
-.card.verified{border-color:var(--accent)}
-.store{color:var(--muted);font-size:16px}
-.what{font-size:18px;margin:4px 0}
-.value{font-size:22px;font-weight:800}
-.badge{font-size:14px;font-weight:800;margin-left:6px}
-.code{display:flex;gap:8px;margin:10px 0}
-.code code{flex:1;border:2px dashed var(--accent);border-radius:8px;padding:6px;text-align:center;
-  font:700 19px Consolas,"Courier New",monospace}
-.btn{display:block;text-align:center;font-weight:800;padding:10px;border-radius:8px;
-  text-decoration:none;border:2px solid var(--text);color:var(--text);margin-top:8px}
-button.copy{background:var(--accent);color:#000;border:0;border-radius:8px;font-weight:800;
-  padding:0 12px;font-size:16px;cursor:pointer}
-.meta{color:var(--muted);font-size:15px;margin-top:6px}
-footer{border-top:2px solid var(--border);margin-top:40px;padding:18px 0;color:var(--muted);
-  font-size:15px}
-.empty{color:var(--muted);font-size:19px}
-.join-bar{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
-.join-btn{background:#2aa1da;color:#fff;font-weight:800;padding:10px 16px;border-radius:10px;
-  text-decoration:none}
-.filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 16px}
-.filter-bar input{flex:1 1 240px;font-size:18px;padding:10px;border-radius:8px;
-  border:2px solid var(--border);background:var(--card);color:var(--text)}
-.pill{font-size:16px;font-weight:800;padding:9px 14px;border-radius:20px;cursor:pointer;
-  border:2px solid var(--border);background:var(--card);color:var(--text)}
-.pill.active{background:var(--accent);color:#000;border-color:var(--accent)}
-.filter-count{color:var(--muted);font-size:16px}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.5 "Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased}
+a{color:var(--blue)}
+.wrap{max-width:1240px;margin:0 auto;padding:0 16px}
+header.site-hdr{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.95);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--border);box-shadow:0 1px 3px rgba(15,23,42,.04)}
+.hdr-top{display:flex;align-items:center;gap:12px;padding:10px 0;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);shrink:0}
+.logo-mark{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;background:linear-gradient(135deg,#2563eb,#4338ca);color:#fff;
+  font-size:18px;box-shadow:0 2px 6px rgba(37,99,235,.25)}
+.logo-text{font-size:18px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.logo-sub{display:block;font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--muted)}
+.hdr-search{flex:1;min-width:210px;display:flex;align-items:center;background:#f8fafc;
+  border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;height:42px}
+.hdr-search:focus-within{background:#fff;border-color:var(--blue);box-shadow:0 0 0 3px rgba(29,78,216,.12)}
+.hdr-search select{height:100%;border:0;border-right:1px solid var(--border);background:#f1f5f9;
+  padding:0 10px;font-size:12px;font-weight:700;color:#334155;cursor:pointer;outline:none}
+.hdr-search input{flex:1;height:100%;border:0;background:transparent;padding:0 12px;
+  font-size:14px;color:var(--text);outline:none;min-width:0}
+.hdr-actions{display:flex;align-items:center;gap:8px}
+.btn-dark{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;
+  border-radius:11px;border:0;background:#0f172a;color:#fff;font-size:13px;font-weight:700;
+  cursor:pointer;text-decoration:none}
+.btn-dark:hover{background:#1e293b}
+.badge-count{padding:1px 7px;border-radius:999px;background:#fbbf24;color:#0f172a;
+  font-size:11px;font-weight:800}
+.btn-emerald{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;
+  border-radius:11px;border:0;background:var(--green);color:#fff;font-size:13px;font-weight:700;
+  text-decoration:none;cursor:pointer}
+.btn-emerald:hover{background:#047857}
+nav.cat-strip{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid #f1f5f9;
+  overflow-x:auto;scrollbar-width:none}
+nav.cat-strip::-webkit-scrollbar{display:none}
+nav.cat-strip a{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;
+  border:1px solid var(--border);background:#fff;color:#334155;font-size:12px;font-weight:700;
+  text-decoration:none;white-space:nowrap;transition:all .15s}
+nav.cat-strip a:hover{border-color:#94a3b8;background:#f8fafc}
+nav.cat-strip a.active{background:#0f172a;color:#fff;border-color:#0f172a}
+main.wrap{padding-top:20px;padding-bottom:36px}
+.hero{background:linear-gradient(135deg,#eff6ff 0%,#eef2ff 55%,#fffbeb 100%);
+  border:1px solid #bfdbfe;border-radius:18px;padding:20px 22px;margin-bottom:20px}
+.hero-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px}
+.live-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  background:#fff;border:1px solid #a7f3d0;color:#047857;font-size:11px;font-weight:800}
+.pulse{width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block}
+h1{font-size:24px;line-height:1.25;margin:10px 0 6px;font-weight:800;letter-spacing:-.02em}
+h2{font-size:20px;margin:22px 0 12px;font-weight:800;letter-spacing:-.01em;
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+h2 a{color:var(--text);text-decoration:none}
+h2 a:hover{color:var(--blue)}
+.see-all{font-size:13px;font-weight:700;color:var(--blue)}
+.lead{color:#475569;font-size:14px;margin:0 0 10px}
+.dept-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:14px}
+.dept-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
+  background:rgba(255,255,255,.92);border:1px solid var(--border);text-decoration:none;
+  color:var(--text);transition:transform .15s,border-color .15s}
+.dept-card:hover{transform:translateY(-2px);border-color:#93c5fd;background:#fff}
+.dept-ico{width:34px;height:34px;border-radius:9px;background:var(--blue-soft);display:flex;
+  align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.dept-name{display:block;font-size:12px;font-weight:800;line-height:1.2}
+.dept-cnt{display:block;font-size:11px;font-weight:600;color:var(--muted)}
+.layout{display:flex;gap:24px;align-items:flex-start}
+.main-col{flex:1;min-width:0}
+.side-col{width:310px;flex-shrink:0;display:flex;flex-direction:column;gap:16px;position:sticky;top:128px}
+.widget{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;
+  box-shadow:0 1px 2px rgba(15,23,42,.03)}
+.widget h3{margin:0 0 12px;font-size:12px;font-weight:800;text-transform:uppercase;
+  letter-spacing:.05em;color:#0f172a}
+.side-code{padding:10px;border-radius:12px;background:#f8fafc;border:1px solid var(--border);
+  margin-bottom:8px}
+.side-code:last-child{margin-bottom:0}
+.side-code-top{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:12px;font-weight:800}
+.side-code-desc{font-size:12px;color:#475569;margin:4px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-code-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chip-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:#f8fafc;
+  color:#334155;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none}
+.chip:hover{background:#eff6ff;border-color:#93c5fd;color:var(--blue)}
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff;
+  border:1px solid var(--border);border-radius:14px;padding:10px 12px;margin:10px 0 16px}
+.filter-bar input{flex:1 1 200px;font-size:14px;padding:8px 12px;border-radius:9px;
+  border:1px solid #cbd5e1;background:#f8fafc;color:var(--text);outline:none}
+.filter-bar input:focus{background:#fff;border-color:var(--blue)}
+.filter-bar select{height:36px;padding:0 10px;border-radius:9px;border:1px solid var(--border);
+  background:#f8fafc;font-size:12px;font-weight:700;color:#334155;cursor:pointer}
+.pill{font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--border);background:#fff;color:#475569}
+.pill:hover{background:#f8fafc}
+.pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.filter-count{color:var(--muted);font-size:12px;font-weight:700;margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.grid.list-view{grid-template-columns:1fr}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:15px;
+  display:flex;flex-direction:column;justify-content:space-between;gap:10px;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.card:hover{transform:translateY(-2px);border-color:#cbd5e1;box-shadow:0 12px 24px -8px rgba(15,23,42,.08)}
+.card.verified{border-color:#6ee7b7}
+.card-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.store-badge{display:inline-block;padding:3px 8px;border-radius:6px;color:#fff;
+  font-size:11px;font-weight:800;text-decoration:none}
+.cat-tag{padding:3px 8px;border-radius:6px;background:#f1f5f9;color:#334155;font-size:11px;font-weight:800}
+.cat-tag.err{background:#fef2f2;color:var(--red)}
+.cat-tag.free{background:var(--green-soft);color:var(--green)}
+.cat-tag.cash{background:var(--amber-soft);color:var(--amber)}
+.badge{padding:3px 8px;border-radius:6px;background:var(--green-soft);color:var(--green);
+  font-size:11px;font-weight:800;margin-left:auto}
+.what{font-size:15px;font-weight:700;color:var(--text);line-height:1.35;cursor:pointer}
+.what:hover{color:var(--blue)}
+.value{font-size:21px;font-weight:800;color:#0f172a;letter-spacing:-.02em}
+.code{display:flex;gap:8px;align-items:center}
+.code code{flex:1;background:#f8fafc;border:1.5px dashed #93c5fd;border-radius:9px;
+  padding:6px 10px;text-align:center;font:800 14px ui-monospace,Consolas,monospace;color:var(--blue)}
+button.copy{background:var(--blue-soft);color:var(--blue);border:1px solid #bfdbfe;border-radius:9px;
+  font-weight:800;padding:7px 12px;font-size:12px;cursor:pointer;white-space:nowrap}
+button.copy:hover{background:#dbeafe}
+.card-actions{display:flex;align-items:center;gap:8px;padding-top:8px;border-top:1px solid #f1f5f9}
+.btn-save{padding:8px 11px;border-radius:9px;border:1px solid var(--border);background:#fff;
+  color:#334155;font-size:12px;font-weight:700;cursor:pointer}
+.btn-save.saved{background:var(--amber-soft);border-color:#fcd34d;color:#92400e}
+.btn{flex:1;display:inline-flex;align-items:center;justify-content:center;font-weight:800;
+  padding:9px 12px;border-radius:10px;text-decoration:none;background:var(--blue);color:#fff;
+  font-size:13px}
+.btn:hover{background:#1e40af}
+.meta{color:var(--muted);font-size:12px}
+.join-bar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+.join-btn{display:inline-flex;align-items:center;gap:6px;background:#0f172a;color:#fff;
+  font-weight:700;font-size:12px;padding:8px 13px;border-radius:10px;text-decoration:none}
+.join-btn:hover{background:#1e293b}
+.premium{display:inline-block;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;
+  font-weight:800;font-size:13px;padding:9px 14px;border-radius:10px;text-decoration:none;margin:4px 0 12px}
+.empty{color:var(--muted);font-size:15px;background:#fff;border:1px solid var(--border);
+  border-radius:14px;padding:24px;text-align:center}
+footer.site-ftr{background:#fff;border-top:1px solid var(--border);margin-top:40px;padding:22px 0;
+  color:var(--muted);font-size:13px}
+.hidden{display:none!important}
+.backdrop{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,.55);
+  backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:16px}
+.backdrop.drawer-wrap{justify-content:flex-end;padding:0}
+.modal{background:#fff;width:100%;max-width:560px;border-radius:18px;border:1px solid var(--border);
+  box-shadow:0 24px 48px rgba(15,23,42,.22);overflow:hidden;max-height:90vh;display:flex;flex-direction:column}
+.drawer{background:#fff;width:100%;max-width:410px;height:100%;border-left:1px solid var(--border);
+  display:flex;flex-direction:column;box-shadow:-12px 0 36px rgba(15,23,42,.16)}
+.m-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;
+  border-bottom:1px solid var(--border);background:#f8fafc;font-weight:800;font-size:14px}
+.m-body{padding:18px;overflow-y:auto;flex:1}
+.m-foot{padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center}
+.x-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:#fff;
+  cursor:pointer;font-size:16px;font-weight:700;color:#475569}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:60;
+  background:#0f172a;color:#fff;padding:10px 16px;border-radius:11px;font-size:13px;font-weight:700;
+  box-shadow:0 12px 24px rgba(15,23,42,.28)}
+@media(max-width:960px){.layout{flex-direction:column}.side-col{width:100%;position:static}}
 """
 
 COPY_JS = """<script>
-document.addEventListener('click',function(ev){var b=ev.target.closest('button.copy');if(!b)return;
-navigator.clipboard.writeText(b.dataset.code).then(function(){b.textContent='Copied!';
-setTimeout(function(){b.textContent='Copy'},1500)})});
-(function(){var bar=document.querySelector('.filter-bar');if(!bar)return;
-var box=bar.querySelector('input'),count=bar.querySelector('.filter-count'),mode='ALL';
-function run(){var q=box.value.trim().toLowerCase(),n=0;
-document.querySelectorAll('.grid .card').forEach(function(c){
-var ok=(mode==='ALL'||(mode==='VERIFIED'?c.dataset.verified==='1':c.dataset.cat===mode))
-&&(!q||c.dataset.text.indexOf(q)>-1);c.style.display=ok?'':'none';if(ok)n++});
-count.textContent=n+' shown'}
-box.addEventListener('input',run);
-bar.querySelectorAll('.pill').forEach(function(p){p.addEventListener('click',function(){
-bar.querySelectorAll('.pill').forEach(function(x){x.classList.remove('active')});
-p.classList.add('active');mode=p.dataset.filter;run()})})})();
+(function(){
+  var STORE_KEY='dealhunter_watch_v1';
+  var saved=[];
+  try{saved=JSON.parse(localStorage.getItem(STORE_KEY)||'[]');if(!Array.isArray(saved))saved=[];}catch(e){}
+  function saveList(){try{localStorage.setItem(STORE_KEY,JSON.stringify(saved));}catch(e){}}
+  function toast(msg){
+    var t=document.getElementById('dh-toast');if(!t)return;
+    t.textContent=msg;t.classList.remove('hidden');
+    clearTimeout(t._tm);t._tm=setTimeout(function(){t.classList.add('hidden')},2200);
+  }
+  function syncSaveButtons(){
+    var b=document.getElementById('wl-badge');
+    if(b)b.textContent=String(saved.length);
+    document.querySelectorAll('.btn-save').forEach(function(btn){
+      var on=saved.some(function(x){return x.h===btn.dataset.hash});
+      btn.classList.toggle('saved',on);
+      btn.textContent=on?'Saved':'Save';
+    });
+  }
+  function renderDrawer(){
+    var box=document.getElementById('wl-items');if(!box)return;
+    box.replaceChildren();
+    if(!saved.length){
+      var p=document.createElement('p');p.className='meta';
+      p.textContent='No saved deals yet. Tap Save on any deal card to keep it here.';
+      box.appendChild(p);return;
+    }
+    saved.forEach(function(item){
+      var row=document.createElement('div');row.className='side-code';
+      var top=document.createElement('div');top.className='side-code-top';
+      var st=document.createElement('span');st.textContent=item.store;
+      var rm=document.createElement('button');rm.type='button';rm.className='x-btn';
+      rm.textContent='×';rm.style.width='26px';rm.style.height='26px';
+      rm.addEventListener('click',function(){
+        saved=saved.filter(function(x){return x.h!==item.h});
+        saveList();syncSaveButtons();renderDrawer();toast('Removed from Watchlist');
+      });
+      top.append(st,rm);
+      var ttl=document.createElement('div');ttl.className='side-code-desc';
+      ttl.style.whiteSpace='normal';ttl.textContent=(item.summary||item.val)+' ('+item.val+')';
+      var go=document.createElement('a');go.href=item.url;go.textContent='Open deal →';
+      go.style.fontSize='12px';go.style.fontWeight='700';go.rel='nofollow sponsored';
+      row.append(top,ttl,go);box.appendChild(row);
+    });
+  }
+  function openModal(card){
+    var m=document.getElementById('dh-modal');if(!m)return;
+    document.getElementById('m-store').textContent=card.dataset.storename+' · '+card.dataset.catlabel;
+    document.getElementById('m-title').textContent=card.dataset.summary||card.dataset.storename+' Deal';
+    document.getElementById('m-val').textContent=card.dataset.val;
+    var cw=document.getElementById('m-code-wrap');
+    if(card.dataset.code){
+      cw.classList.remove('hidden');
+      document.getElementById('m-code').textContent=card.dataset.code;
+      document.getElementById('m-copy').dataset.code=card.dataset.code;
+    }else{cw.classList.add('hidden');}
+    document.getElementById('m-meta').textContent=card.dataset.meta||'';
+    document.getElementById('m-go').href=card.dataset.url;
+    m.classList.remove('hidden');
+  }
+  function applyFilters(){
+    var bar=document.querySelector('.filter-bar');
+    var hdr=document.getElementById('hdr-search');
+    var q=((bar&&bar.querySelector('input')?bar.querySelector('input').value:'')||(hdr?hdr.value:'')).trim().toLowerCase();
+    var active=bar?bar.querySelector('.pill.active'):null;
+    var mode=active?active.dataset.filter:'ALL';
+    var stSel=document.getElementById('store-filter');
+    var st=stSel?stSel.value:'';
+    var n=0;
+    document.querySelectorAll('.grid .card').forEach(function(c){
+      var okCat=(mode==='ALL'||(mode==='VERIFIED'?c.dataset.verified==='1':(mode==='HAS_CODE'?!!c.dataset.code:c.dataset.cat===mode)));
+      var okSt=!st||c.dataset.store===st;
+      var okQ=!q||(c.dataset.text||'').indexOf(q)>-1;
+      var show=okCat&&okSt&&okQ;
+      c.style.display=show?'':'none';
+      if(show)n++;
+    });
+    var cnt=bar?bar.querySelector('.filter-count'):null;
+    if(cnt)cnt.textContent=n+' shown';
+  }
+  document.addEventListener('click',function(ev){
+    var b=ev.target.closest('button.copy');
+    if(b){
+      if(navigator.clipboard)navigator.clipboard.writeText(b.dataset.code||'').catch(function(){});
+      var prev=b.textContent;b.textContent='Copied!';toast('Copied "'+(b.dataset.code||'')+'"');
+      setTimeout(function(){b.textContent=prev==='Copied!'?'Copy':prev},1500);return;
+    }
+    var sv=ev.target.closest('.btn-save');
+    if(sv){
+      var h=sv.dataset.hash;
+      var idx=saved.findIndex(function(x){return x.h===h});
+      if(idx>-1){saved.splice(idx,1);toast('Removed from Watchlist');}
+      else{saved.unshift({h:h,store:sv.dataset.store,summary:sv.dataset.summary,val:sv.dataset.val,url:sv.dataset.url});toast('Saved to Watchlist');}
+      saveList();syncSaveButtons();renderDrawer();return;
+    }
+    var pill=ev.target.closest('.filter-bar .pill');
+    if(pill){
+      document.querySelectorAll('.filter-bar .pill').forEach(function(x){x.classList.remove('active')});
+      pill.classList.add('active');applyFilters();return;
+    }
+    var stChip=ev.target.closest('[data-pick-store]');
+    if(stChip){
+      var sel=document.getElementById('store-filter');
+      if(sel){sel.value=sel.value===stChip.dataset.pickStore?'':stChip.dataset.pickStore;applyFilters();}
+      return;
+    }
+    var what=ev.target.closest('.card .what');
+    if(what){openModal(what.closest('.card'));return;}
+    if(ev.target.id==='wl-open'||ev.target.closest('#wl-open')){
+      renderDrawer();document.getElementById('dh-drawer').classList.remove('hidden');return;
+    }
+    if(ev.target.id==='wl-close'||ev.target.id==='dh-drawer'){
+      document.getElementById('dh-drawer').classList.add('hidden');return;
+    }
+    if(ev.target.id==='m-close'||ev.target.id==='dh-modal'){
+      document.getElementById('dh-modal').classList.add('hidden');return;
+    }
+    var vb=ev.target.closest('[data-view]');
+    if(vb){
+      var g=document.querySelector('.grid');
+      if(g)g.classList.toggle('list-view',vb.dataset.view==='list');
+    }
+  });
+  var barInp=document.querySelector('.filter-bar input');
+  var hdrInp=document.getElementById('hdr-search');
+  if(barInp)barInp.addEventListener('input',function(){if(hdrInp)hdrInp.value=barInp.value;applyFilters();});
+  if(hdrInp)hdrInp.addEventListener('input',function(){
+    if(barInp){barInp.value=hdrInp.value;applyFilters();}
+    else{
+      var q=hdrInp.value.trim().toLowerCase();
+      document.querySelectorAll('.grid .card').forEach(function(c){
+        c.style.display=(!q||(c.dataset.text||'').indexOf(q)>-1)?'':'none';
+      });
+    }
+  });
+  var stSel=document.getElementById('store-filter');
+  if(stSel)stSel.addEventListener('change',applyFilters);
+  document.addEventListener('keydown',function(ev){
+    if(ev.key==='/'&&document.activeElement.tagName!=='INPUT'){
+      var tgt=barInp||hdrInp;if(tgt){ev.preventDefault();tgt.focus();}
+    }else if(ev.key==='Escape'){
+      var m=document.getElementById('dh-modal');if(m)m.classList.add('hidden');
+      var d=document.getElementById('dh-drawer');if(d)d.classList.add('hidden');
+    }
+  });
+  syncSaveButtons();
+})();
 </script>"""
 
 
@@ -106,48 +375,139 @@ def go_link(deal: dict) -> str:
     return deal.get("affiliate_url") or f"https://{deal['store_domain']}"
 
 
+def _store_color(domain: str) -> str:
+    d = (domain or "").lower()
+    for k, col in STORE_COLORS.items():
+        if d == k or d.endswith("." + k):
+            return col
+    return "#334155"
+
+
 def card(deal: dict) -> str:
     label, _ = CATEGORY_STYLE.get(deal["category"], ("DEAL", 0))
+    cat = str(deal["category"])
+    cat_cls = " err" if cat == "PRICE_ERROR" else (" free" if cat == "FREEBIE" else (" cash" if cat == "CASHBACK_BONUS" else ""))
     verified = deal.get("is_verified")
     search_text = " ".join(str(deal.get(k) or "") for k in
                            ("store_name", "store_domain", "summary", "discount_value",
                             "promo_code")).lower()
-    parts = [f'<div class="card{" verified" if verified else ""}" '
-             f'data-cat="{e(str(deal["category"]), quote=True)}" '
-             f'data-verified="{1 if verified else 0}" data-text="{e(search_text, quote=True)}">',
-             f'<div class="store">{e(label)} · <a href="{u('/store/' + slug(deal["store_domain"]) + '.html')}">'
-             f'{e(deal["store_name"])}</a></div>']
+    link = go_link(deal)
+    meta_parts = []
+    if deal.get("expiration_date"):
+        meta_parts.append(f"Ends {deal['expiration_date']}")
+    if deal.get("source"):
+        meta_parts.append(f"via {deal['source']}")
+    meta_txt = " · ".join(meta_parts)
+
+    parts = [
+        f'<div class="card{" verified" if verified else ""}" '
+        f'data-cat="{e(cat, quote=True)}" '
+        f'data-catlabel="{e(label, quote=True)}" '
+        f'data-store="{e(deal["store_domain"], quote=True)}" '
+        f'data-storename="{e(deal["store_name"], quote=True)}" '
+        f'data-summary="{e(deal.get("summary") or "", quote=True)}" '
+        f'data-val="{e(deal["discount_value"], quote=True)}" '
+        f'data-code="{e(deal.get("promo_code") or "", quote=True)}" '
+        f'data-url="{e(link, quote=True)}" '
+        f'data-meta="{e(meta_txt, quote=True)}" '
+        f'data-verified="{1 if verified else 0}" data-text="{e(search_text, quote=True)}">',
+        '<div class="card-top">'
+        f'<a class="store-badge" style="background:{_store_color(deal["store_domain"])}" '
+        f'href="{u("/store/" + slug(deal["store_domain"]) + ".html")}">{e(deal["store_name"])}</a>'
+        f'<span class="cat-tag{cat_cls}">{e(label)}</span>'
+        + ('<span class="badge">✔ VERIFIED</span>' if verified else "")
+        + '</div>',
+    ]
     if deal.get("summary"):
-        parts.append(f'<div class="what">{e(deal["summary"])}</div>')
-    parts.append(f'<div class="value">{e(deal["discount_value"])}'
-                 + ('<span class="badge">✔ VERIFIED</span>' if verified else "") + "</div>")
+        parts.append(f'<div class="what" title="Click for deal details">{e(deal["summary"])}</div>')
+    parts.append(f'<div class="value">{e(deal["discount_value"])}</div>')
     if deal.get("promo_code"):
-        parts.append(f'<div class="code"><code>{e(deal["promo_code"])}</code>'
-                     f'<button class="copy" data-code="{e(deal["promo_code"], quote=True)}">'
-                     f"Copy</button></div>")
+        parts.append(
+            f'<div class="code"><code>{e(deal["promo_code"])}</code>'
+            f'<button type="button" class="copy" data-code="{e(deal["promo_code"], quote=True)}">Copy</button></div>'
+        )
     if deal.get("expiration_date"):
         parts.append(f'<div class="meta">Ends {e(str(deal["expiration_date"]))}</div>')
-    parts.append(f'<a class="btn" href="{e(go_link(deal), quote=True)}" rel="nofollow sponsored">'
-                 f"Get this deal →</a></div>")
+    parts.append(
+        '<div class="card-actions">'
+        f'<button type="button" class="btn-save" data-hash="{e(deal["deal_hash"], quote=True)}" '
+        f'data-store="{e(deal["store_name"], quote=True)}" '
+        f'data-summary="{e(deal.get("summary") or "", quote=True)}" '
+        f'data-val="{e(deal["discount_value"], quote=True)}" '
+        f'data-url="{e(link, quote=True)}">Save</button>'
+        f'<a class="btn" href="{e(link, quote=True)}" rel="nofollow sponsored">Get this deal →</a>'
+        '</div></div>'
+    )
     return "".join(parts)
 
 
-def page(title: str, body: str, description: str = "", extra_head: str = "") -> str:
+def page(title: str, body: str, description: str = "", extra_head: str = "",
+         active_niche: str = "") -> str:
     niches = load_niches()
-    nav = "".join(f'<a href="{u("/" + n.id + "/")}">{e(n.emoji)} {e(n.name)}</a>' for n in niches)
+    nav = f'<a href="{u("/")}" class="{"active" if not active_niche else ""}">All Deals</a>'
+    nav += "".join(
+        f'<a href="{u("/" + n.id + "/")}" class="{"active" if active_niche == n.id else ""}">'
+        f'{e(n.emoji)} {e(n.name)}</a>'
+        for n in niches
+    )
+    dept_opts = '<option value="">All Categories</option>' + "".join(
+        f'<option value="{u("/" + n.id + "/")}">{e(n.name)}</option>' for n in niches
+    )
+    first_tg = next((n.telegram_chat("free") for n in niches if n.telegram_chat("free").startswith("@")), "")
+    alerts_btn = (
+        f'<a class="btn-emerald" href="https://t.me/{e(first_tg[1:], quote=True)}" '
+        f'target="_blank" rel="noopener">Free Alerts</a>'
+        if first_tg else ""
+    )
     year = datetime.now().year
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(description or title, quote=True)}">{extra_head}
 <link rel="alternate" type="application/rss+xml" title="{e(settings.site_name)} RSS" href="{u('/rss.xml')}">
 <style>{CSS}</style>{analytics_html()}</head><body>
-<header><div class="wrap"><a class="logo" href="{u("/")}">🏷️ {e(settings.site_name)}</a>
-<nav>{nav}</nav></div></header>
+<header class="site-hdr"><div class="wrap">
+  <div class="hdr-top">
+    <a class="logo" href="{u("/")}">
+      <span class="logo-mark">🏷️</span>
+      <span><span class="logo-text">{e(settings.site_name)}</span>
+      <span class="logo-sub">Verified Deals &amp; Promo Codes</span></span>
+    </a>
+    <div class="hdr-search">
+      <select aria-label="Jump to category" onchange="if(this.value)location.href=this.value">{dept_opts}</select>
+      <input id="hdr-search" type="search" placeholder="Search stores, items, or promo codes (press /)..." aria-label="Search deals">
+    </div>
+    <div class="hdr-actions">
+      {alerts_btn}
+      <button type="button" id="wl-open" class="btn-dark">Watchlist <span id="wl-badge" class="badge-count">0</span></button>
+    </div>
+  </div>
+  <nav class="cat-strip" aria-label="Categories">{nav}</nav>
+</div></header>
 <main class="wrap">{body}</main>
-<footer><div class="wrap">{e(DISCLOSURE)} ·
+<footer class="site-ftr"><div class="wrap">{e(DISCLOSURE)} ·
 <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
-</div></footer>{COPY_JS}</body></html>"""
+</div></footer>
+<div id="dh-modal" class="backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="m-head"><span id="m-store">Deal Details</span><button type="button" id="m-close" class="x-btn" aria-label="Close">×</button></div>
+    <div class="m-body">
+      <h2 id="m-title" style="margin-top:0"></h2>
+      <div id="m-val" class="value" style="margin:8px 0 12px"></div>
+      <div id="m-code-wrap" class="code hidden" style="margin:12px 0"><code id="m-code"></code><button type="button" id="m-copy" class="copy">Copy Code</button></div>
+      <p id="m-meta" class="meta"></p>
+    </div>
+    <div class="m-foot"><a id="m-go" class="btn" href="#" rel="nofollow sponsored">Go to Store →</a></div>
+  </div>
+</div>
+<div id="dh-drawer" class="backdrop drawer-wrap hidden">
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="Saved Watchlist">
+    <div class="m-head"><span>Saved Watchlist</span><button type="button" id="wl-close" class="x-btn" aria-label="Close">×</button></div>
+    <div id="wl-items" class="m-body"></div>
+  </div>
+</div>
+<div id="dh-toast" class="toast hidden" role="status" aria-live="polite"></div>
+{COPY_JS}</body></html>"""
 
 
 def analytics_html() -> str:
@@ -179,16 +539,59 @@ def join_banner(niches: list) -> str:
     return '<div class="join-bar">' + "".join(links) + "</div>" if links else ""
 
 
-def filter_bar(count: int) -> str:
+def filter_bar(count: int, stores: list[tuple[str, str]] | None = None) -> str:
     if count < 2:
         return ""
     pills = [("ALL", "All"), ("PRICE_ERROR", "Price errors"), ("COUPON", "Coupons"),
-             ("FREEBIE", "Freebies"), ("CASHBACK_BONUS", "Cash bonuses"), ("VERIFIED", "Verified")]
+             ("FREEBIE", "Freebies"), ("CASHBACK_BONUS", "Cash bonuses"),
+             ("HAS_CODE", "With Code"), ("VERIFIED", "Verified")]
     buttons = "".join(f'<button type="button" class="pill{" active" if k == "ALL" else ""}" '
                       f'data-filter="{k}">{label}</button>' for k, label in pills)
-    return ('<div class="filter-bar"><input type="search" placeholder="Search store, item or code"'
-            f' aria-label="Search deals">{buttons}<span class="filter-count">{count} shown</span>'
-            "</div>")
+    store_sel = ""
+    if stores:
+        opts = "".join(f'<option value="{e(dom, quote=True)}">{e(name)}</option>' for dom, name in stores)
+        store_sel = f'<select id="store-filter" aria-label="Filter by store"><option value="">All Stores</option>{opts}</select>'
+    view_btns = ('<button type="button" class="pill" data-view="grid" title="Grid view">Grid</button>'
+                 '<button type="button" class="pill" data-view="list" title="List view">List</button>')
+    return ('<div class="filter-bar"><input type="search" placeholder="Filter store, item or code"'
+            f' aria-label="Search deals">{buttons}{store_sel}{view_btns}'
+            f'<span class="filter-count">{count} shown</span></div>')
+
+
+def _sidebar(deals: list[dict], niches: list) -> str:
+    code_deals = [d for d in deals if d.get("promo_code")][:4]
+    code_html = "".join(
+        f'<div class="side-code"><div class="side-code-top"><span>{e(d["store_name"])}</span>'
+        f'<span style="color:var(--green)">{e(d["discount_value"])}</span></div>'
+        f'<div class="side-code-desc">{e(d.get("summary") or d["store_name"])}</div>'
+        f'<div class="side-code-row"><code>{e(d["promo_code"])}</code>'
+        f'<button type="button" class="copy" data-code="{e(d["promo_code"], quote=True)}">Copy</button>'
+        '</div></div>'
+        for d in code_deals
+    ) or '<p class="meta" style="margin:0">Active promo codes appear here automatically.</p>'
+
+    store_counts: dict[str, tuple[str, int]] = {}
+    for d in deals:
+        dom = d["store_domain"]
+        name, cnt = store_counts.get(dom, (d["store_name"], 0))
+        store_counts[dom] = (name, cnt + 1)
+    top_stores = sorted(store_counts.items(), key=lambda x: (-x[1][1], x[1][0]))[:14]
+    store_chips = "".join(
+        f'<a class="chip" href="{u("/store/" + slug(dom) + ".html")}">{e(name)} ({cnt})</a>'
+        for dom, (name, cnt) in top_stores
+    ) or '<span class="meta">No stores yet.</span>'
+
+    alerts_box = join_banner(niches) + "".join(premium_button(n) for n in niches if n.premium_url)
+    alerts_card = (f'<div class="widget"><h3>Free &amp; Instant Alerts</h3>{alerts_box}</div>'
+                   if alerts_box else "")
+
+    return (
+        '<aside class="side-col">'
+        f'<div class="widget"><h3>Top Promo Codes</h3>{code_html}</div>'
+        f'<div class="widget"><h3>Browse by Store</h3><div class="chip-wrap">{store_chips}</div></div>'
+        f'{alerts_card}'
+        '</aside>'
+    )
 
 
 def deal_grid(deals: list[dict]) -> str:
@@ -235,7 +638,7 @@ def rss_xml(deals: list[dict]) -> str:
             desc_parts.append("Verified at checkout")
         desc = " | ".join(p for p in desc_parts if p)
         link = go_link(d)
-        if link.startswith("/"):   # click-tracking links are site-relative; feeds need full URLs
+        if link.startswith("/"):
             link = urlparse(base)._replace(path="", query="", fragment="").geturl() + link \
                 if base else link
         items.append(
@@ -265,7 +668,7 @@ def tiktok_scripts_html(deals: list[dict]) -> str:
         disc = d["discount_value"]
         code_line = f" Use code {d['promo_code']} at checkout." if d.get("promo_code") else ""
         hook = f"{d['store_name']}: {disc} on {item}"
-        spoken = (f"Heads up if you've been eyeing {item}: {d['store_name']} currently has it "
+        spoken = (f"Heads up if you've been eyeing {item} — {d['store_name']} currently has it "
                   f"for {disc}.{code_line} I put the direct link on {settings.site_name}.")
         tags = "#deals #pricealert #clearance #savingmoney"
         niches = set(d.get("niches") or [])
@@ -283,13 +686,13 @@ def tiktok_scripts_html(deals: list[dict]) -> str:
         full_copy = f"HOOK (on screen):\n{hook}\n\nSAY THIS:\n{spoken}\n\nCAPTION:\n{caption}"
         cards.append(
             f'<div class="card">'
-            f'<div class="store">{e(d["store_name"])} · {e(disc)}</div>'
-            f'<p><b>On-screen hook:</b> {e(hook)}</p>'
-            f'<p><b>15-sec script:</b> {e(spoken)}</p>'
+            f'<div class="meta" style="font-weight:800">{e(d["store_name"])} · {e(disc)}</div>'
+            f'<p style="margin:6px 0"><b>On-screen hook:</b> {e(hook)}</p>'
+            f'<p style="margin:6px 0"><b>15-sec script:</b> {e(spoken)}</p>'
             f'<p class="meta"><b>Caption:</b> {e(caption)}</p>'
             f'<button type="button" class="copy" style="padding:10px 14px;margin-top:8px" '
             f'data-code="{e(full_copy, quote=True)}">Copy script &amp; caption</button>'
-            f'<a class="btn" href="{e(go_link(d), quote=True)}" rel="nofollow sponsored">Open deal →</a>'
+            f'<a class="btn" style="margin-top:8px" href="{e(go_link(d), quote=True)}" rel="nofollow sponsored">Open deal →</a>'
             f'</div>'
         )
     grid = '<div class="grid">' + "".join(cards) + "</div>" if cards else '<p class="empty">No deals yet.</p>'
@@ -319,15 +722,40 @@ async def build_site(db, out_dir: str | None = None) -> int:
 
     # Home
     sections = []
+    dept_cards = []
+    home_pool: dict[str, dict] = {}
     for n in niches:
-        deals = sorted(_visible(await db.niche_deals(n.id, hours=24 * 3, limit=200)),
-                       key=value_score, reverse=True)[:9]
-        sections.append(f'<h2>{e(n.emoji)} <a href="{u("/" + n.id + "/")}">{e(n.name)}</a></h2>'
-                        f"{premium_button(n)}{deal_grid(deals)}")
-    body = (f"<h1>Today's best deals</h1><p class='lead'>Coupon codes, price drops and freebies, "
-            f"checked by machine and updated every hour.</p>" + join_banner(niches)
-            + "".join(sections))
-    _write(root, "index.html", page(f"{settings.site_name}: today's best deals", body))
+        all_niche_deals = _visible(await db.niche_deals(n.id, hours=24 * 3, limit=200))
+        for d in all_niche_deals:
+            home_pool[d["deal_hash"]] = d
+        deals = sorted(all_niche_deals, key=value_score, reverse=True)[:6]
+        dept_cards.append(
+            f'<a class="dept-card" href="{u("/" + n.id + "/")}">'
+            f'<span class="dept-ico">{e(n.emoji)}</span>'
+            f'<span><span class="dept-name">{e(n.name)}</span>'
+            f'<span class="dept-cnt">{len(all_niche_deals)} active</span></span></a>'
+        )
+        sections.append(
+            f'<h2><span>{e(n.emoji)} <a href="{u("/" + n.id + "/")}">{e(n.name)}</a></span>'
+            f'<a class="see-all" href="{u("/" + n.id + "/")}">View all →</a></h2>'
+            f"{premium_button(n)}{deal_grid(deals)}"
+        )
+
+    hero = (
+        '<section class="hero"><div class="hero-top"><div>'
+        f'<span class="live-pill"><span class="pulse"></span> Updated Automatically · {len(home_pool)} Active Deals</span>'
+        "<h1>Verified deals, promo codes &amp; price drops.</h1>"
+        "<p class='lead'>Scanned automatically across Farm, Moto, Tools, Auto, Electronics &amp; Home—click any card to copy codes or save to your Watchlist.</p>"
+        f"{join_banner(niches)}"
+        "</div></div>"
+        f'<div class="dept-grid">{"".join(dept_cards)}</div>'
+        "</section>"
+    )
+    home_layout = (
+        f'{hero}<div class="layout"><div class="main-col">{"".join(sections)}</div>'
+        f'{_sidebar(list(home_pool.values()), niches)}</div>'
+    )
+    _write(root, "index.html", page(f"{settings.site_name}: today's best deals", home_layout))
     written += 1
 
     # Niche pages + collect stores
@@ -337,12 +765,18 @@ async def build_site(db, out_dir: str | None = None) -> int:
         for d in deals:
             stores.setdefault(d["store_domain"], []).append(d)
         recent = sorted(deals, key=lambda d: d["created_at"], reverse=True)[:120]
-        body = (f"<h1>{e(n.emoji)} {e(n.name)}</h1><p class='lead'>Updated "
-                f"{datetime.now().strftime('%B %d, %Y')}.</p>{join_banner([n])}"
-                f"{premium_button(n)}{filter_bar(len(recent))}{deal_grid(recent)}")
+        niche_stores = sorted({d["store_domain"]: d["store_name"] for d in recent}.items(),
+                              key=lambda x: x[1].lower())
+        body = (
+            f"<h1>{e(n.emoji)} {e(n.name)}</h1><p class='lead'>Updated "
+            f"{datetime.now().strftime('%B %d, %Y')}.</p>{join_banner([n])}{premium_button(n)}"
+            f'<div class="layout"><div class="main-col">'
+            f"{filter_bar(len(recent), niche_stores)}{deal_grid(recent)}</div>"
+            f"{_sidebar(recent, [n])}</div>"
+        )
         _write(root, f"{n.id}/index.html", page(f"{n.name} | {settings.site_name}", body,
                                                 f"Latest {n.name.lower()}: coupon codes, "
-                                                f"sales and freebies."))
+                                                f"sales and freebies.", active_niche=n.id))
         urls.append(f"/{n.id}/")
         written += 1
 
