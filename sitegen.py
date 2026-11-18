@@ -54,12 +54,33 @@ button.copy{background:var(--accent);color:#000;border:0;border-radius:8px;font-
 footer{border-top:2px solid var(--border);margin-top:40px;padding:18px 0;color:var(--muted);
   font-size:15px}
 .empty{color:var(--muted);font-size:19px}
+.join-bar{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
+.join-btn{background:#2aa1da;color:#fff;font-weight:800;padding:10px 16px;border-radius:10px;
+  text-decoration:none}
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 16px}
+.filter-bar input{flex:1 1 240px;font-size:18px;padding:10px;border-radius:8px;
+  border:2px solid var(--border);background:var(--card);color:var(--text)}
+.pill{font-size:16px;font-weight:800;padding:9px 14px;border-radius:20px;cursor:pointer;
+  border:2px solid var(--border);background:var(--card);color:var(--text)}
+.pill.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.filter-count{color:var(--muted);font-size:16px}
 """
 
 COPY_JS = """<script>
 document.addEventListener('click',function(ev){var b=ev.target.closest('button.copy');if(!b)return;
 navigator.clipboard.writeText(b.dataset.code).then(function(){b.textContent='Copied!';
 setTimeout(function(){b.textContent='Copy'},1500)})});
+(function(){var bar=document.querySelector('.filter-bar');if(!bar)return;
+var box=bar.querySelector('input'),count=bar.querySelector('.filter-count'),mode='ALL';
+function run(){var q=box.value.trim().toLowerCase(),n=0;
+document.querySelectorAll('.grid .card').forEach(function(c){
+var ok=(mode==='ALL'||(mode==='VERIFIED'?c.dataset.verified==='1':c.dataset.cat===mode))
+&&(!q||c.dataset.text.indexOf(q)>-1);c.style.display=ok?'':'none';if(ok)n++});
+count.textContent=n+' shown'}
+box.addEventListener('input',run);
+bar.querySelectorAll('.pill').forEach(function(p){p.addEventListener('click',function(){
+bar.querySelectorAll('.pill').forEach(function(x){x.classList.remove('active')});
+p.classList.add('active');mode=p.dataset.filter;run()})})})();
 </script>"""
 
 
@@ -86,7 +107,12 @@ def go_link(deal: dict) -> str:
 def card(deal: dict) -> str:
     label, _ = CATEGORY_STYLE.get(deal["category"], ("DEAL", 0))
     verified = deal.get("is_verified")
-    parts = [f'<div class="card{" verified" if verified else ""}">',
+    search_text = " ".join(str(deal.get(k) or "") for k in
+                           ("store_name", "store_domain", "summary", "discount_value",
+                            "promo_code")).lower()
+    parts = [f'<div class="card{" verified" if verified else ""}" '
+             f'data-cat="{e(str(deal["category"]), quote=True)}" '
+             f'data-verified="{1 if verified else 0}" data-text="{e(search_text, quote=True)}">',
              f'<div class="store">{e(label)} · <a href="{u('/store/' + slug(deal["store_domain"]) + '.html')}">'
              f'{e(deal["store_name"])}</a></div>']
     if deal.get("summary"):
@@ -111,7 +137,7 @@ def page(title: str, body: str, description: str = "") -> str:
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(description or title, quote=True)}">
-<style>{CSS}</style></head><body>
+<style>{CSS}</style>{analytics_html()}</head><body>
 <header><div class="wrap"><a class="logo" href="{u("/")}">🏷️ {e(settings.site_name)}</a>
 <nav>{nav}</nav></div></header>
 <main class="wrap">{body}</main>
@@ -119,6 +145,47 @@ def page(title: str, body: str, description: str = "") -> str:
 <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a>
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
 </div></footer>{COPY_JS}</body></html>"""
+
+
+def analytics_html() -> str:
+    """Optional free, cookie-less visitor counts (Cloudflare Web Analytics or GoatCounter)."""
+    parts = []
+    if settings.cloudflare_analytics_token:
+        tok = json.dumps({"token": settings.cloudflare_analytics_token})
+        parts.append("<script defer src='https://static.cloudflareinsights.com/beacon.min.js' "
+                     f"data-cf-beacon='{e(tok, quote=True)}'></script>")
+    site = re.sub(r"[^a-zA-Z0-9-]", "", settings.goatcounter_site)
+    if site:
+        parts.append(f'<script data-goatcounter="https://{site}.goatcounter.com/count" '
+                     'async src="https://gc.zgo.at/count.js"></script>')
+    return "".join(parts)
+
+
+def join_banner(niches: list) -> str:
+    """Join buttons for PUBLIC channels only (@name). Webhook links are never shown."""
+    links = []
+    for n in niches:
+        tg = n.telegram_chat("free")
+        if tg.startswith("@"):
+            links.append(f'<a class="join-btn" href="https://t.me/{e(tg[1:], quote=True)}" '
+                         f'target="_blank" rel="noopener">Join {e(n.emoji)} {e(n.name)} '
+                         "on Telegram</a>")
+    if settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
+        links.append(f'<a class="join-btn" href="{e(settings.discord_invite_url, quote=True)}" '
+                     'target="_blank" rel="noopener">Join our Discord</a>')
+    return '<div class="join-bar">' + "".join(links) + "</div>" if links else ""
+
+
+def filter_bar(count: int) -> str:
+    if count < 2:
+        return ""
+    pills = [("ALL", "All"), ("PRICE_ERROR", "Price errors"), ("COUPON", "Coupons"),
+             ("FREEBIE", "Freebies"), ("CASHBACK_BONUS", "Cash bonuses"), ("VERIFIED", "Verified")]
+    buttons = "".join(f'<button type="button" class="pill{" active" if k == "ALL" else ""}" '
+                      f'data-filter="{k}">{label}</button>' for k, label in pills)
+    return ('<div class="filter-bar"><input type="search" placeholder="Search store, item or code"'
+            f' aria-label="Search deals">{buttons}<span class="filter-count">{count} shown</span>'
+            "</div>")
 
 
 def deal_grid(deals: list[dict]) -> str:
@@ -164,7 +231,8 @@ async def build_site(db, out_dir: str | None = None) -> int:
         sections.append(f'<h2>{e(n.emoji)} <a href="{u("/" + n.id + "/")}">{e(n.name)}</a></h2>'
                         f"{premium_button(n)}{deal_grid(deals)}")
     body = (f"<h1>Today's best deals</h1><p class='lead'>Coupon codes, price drops and freebies, "
-            f"checked by machine and updated every hour.</p>" + "".join(sections))
+            f"checked by machine and updated every hour.</p>" + join_banner(niches)
+            + "".join(sections))
     _write(root, "index.html", page(f"{settings.site_name}: today's best deals", body))
     written += 1
 
@@ -176,8 +244,8 @@ async def build_site(db, out_dir: str | None = None) -> int:
             stores.setdefault(d["store_domain"], []).append(d)
         recent = sorted(deals, key=lambda d: d["created_at"], reverse=True)[:120]
         body = (f"<h1>{e(n.emoji)} {e(n.name)}</h1><p class='lead'>Updated "
-                f"{datetime.now().strftime('%B %d, %Y')}.</p>{premium_button(n)}"
-                f"{deal_grid(recent)}")
+                f"{datetime.now().strftime('%B %d, %Y')}.</p>{join_banner([n])}"
+                f"{premium_button(n)}{filter_bar(len(recent))}{deal_grid(recent)}")
         _write(root, f"{n.id}/index.html", page(f"{n.name} | {settings.site_name}", body,
                                                 f"Latest {n.name.lower()}: coupon codes, "
                                                 f"sales and freebies."))
@@ -192,7 +260,7 @@ async def build_site(db, out_dir: str | None = None) -> int:
         month = datetime.now().strftime("%B %Y")
         body = (f"<h1>{e(name)} coupon codes &amp; deals</h1>"
                 f"<p class='lead'>Active {e(name)} promo codes and sales for {month}.</p>"
-                f"{deal_grid(deals)}")
+                f"{filter_bar(len(deals))}{deal_grid(deals)}")
         _write(root, f"store/{slug(domain)}.html",
                page(f"{name} coupon codes & deals ({month}) | {settings.site_name}", body,
                     f"Working {name} promo codes and deals for {month}."))
@@ -212,7 +280,9 @@ async def build_site(db, out_dir: str | None = None) -> int:
         f"{contact}"))
     _write(root, "privacy.html", page(f"Privacy policy | {settings.site_name}",
         "<h1>Privacy policy</h1><p>We don't use accounts, ads trackers or analytics cookies. "
-        "When you click a deal we count the click (which deal, which page or channel, and the "
+        + ("We count visits with a privacy-friendly, cookie-free counter (no personal data). "
+           if settings.cloudflare_analytics_token or settings.goatcounter_site else "")
+        + "When you click a deal we count the click (which deal, which page or channel, and the "
         "time) to know which deals are popular. We don't store your IP address with that "
         "count.</p><p>Our server keeps standard technical logs for security, deleted "
         "regularly.</p><p>When you leave for a store through an affiliate link, that store "

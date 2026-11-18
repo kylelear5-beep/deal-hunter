@@ -70,14 +70,23 @@ def build_affiliate_url(url: str | None, deal_hash: str = "", store_domain: str 
         return _with_params(url, {**EBAY_FIXED, "campid": settings.ebay_campid,
                                   "customid": settings.ebay_customid or subid})
 
+    # Per-store networks (Impact, CJ, Rakuten, AvantLink...): longest domain match wins.
+    for dom in sorted(settings.affiliate_templates, key=len, reverse=True):
+        if host_matches(host, dom):
+            return _apply_template(settings.affiliate_templates[dom], url, subid, host)
+
     template = settings.affiliate_generic_template
     if template:
         allowed = settings.affiliate_generic_domains
         if not allowed or any(host_matches(host, d) for d in allowed):
-            return (template.replace("{url}", quote(url, safe=""))
-                            .replace("{subid}", quote(subid, safe=""))
-                            .replace("{domain}", quote(host, safe="")))
+            return _apply_template(template, url, subid, host)
     return url
+
+
+def _apply_template(template: str, url: str, subid: str, host: str) -> str:
+    return (template.replace("{url}", quote(url, safe=""))
+                    .replace("{subid}", quote(subid, safe=""))
+                    .replace("{domain}", quote(host, safe="")))
 
 
 def plain_url_for_extension(deal: dict) -> str:

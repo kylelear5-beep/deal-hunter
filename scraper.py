@@ -154,13 +154,13 @@ class RSSScraper(BaseScraper):
     async def scrape(self) -> list[RawItem]:
         results = await asyncio.gather(*(self._one(f) for f in self.feeds),
                                        return_exceptions=True)
-        out: list[RawItem] = []
+        buckets: list[list[RawItem]] = []
         for feed, res in zip(self.feeds, results):
             if isinstance(res, Exception):
                 log.warning("RSS feed failed (%s): %s", feed, res)
             else:
-                out.extend(res)
-        return out
+                buckets.append(res)
+        return round_robin(buckets)
 
 
 # ----------------------------------------------------------------------------
@@ -223,12 +223,13 @@ class RedditScraper(BaseScraper):
         else:
             results = await asyncio.gather(*(self._json_one(s) for s in self.subreddits),
                                            return_exceptions=True)
-            items = []
+            buckets = []
             for sub, res in zip(self.subreddits, results):
                 if isinstance(res, Exception):
                     log.warning("Reddit r/%s failed: %s", sub, res)
                 else:
-                    items.extend(res)
+                    buckets.append(res)
+            items = round_robin(buckets)
         log.info("Reddit (%s) -> %d posts", "PRAW" if self.use_praw else "json", len(items))
         return items
 
@@ -374,13 +375,24 @@ def build_scrapers(sources: dict) -> list[BaseScraper]:
 async def scrape_all(sources: dict) -> list[RawItem]:
     scrapers = build_scrapers(sources)
     results = await asyncio.gather(*(s.scrape() for s in scrapers), return_exceptions=True)
-    items: list[RawItem] = []
+    buckets: list[list[RawItem]] = []
     for s, res in zip(scrapers, results):
         if isinstance(res, Exception):
             log.error("%s scraper crashed: %s", s.name, res)
         else:
-            items.extend(res)
-    return items
+            buckets.append(res)
+    return round_robin(buckets)
+
+
+def round_robin(buckets: list[list[RawItem]]) -> list[RawItem]:
+    """Take one item from each feed in turn, so one busy feed can't use up the AI's
+    60-per-run limit and starve the others (e.g. moto feeds behind the front page)."""
+    out: list[RawItem] = []
+    for idx in range(max((len(b) for b in buckets), default=0)):
+        for bucket in buckets:
+            if idx < len(bucket):
+                out.append(bucket[idx])
+    return out
 
 
 if __name__ == "__main__":  # quick manual check: python scraper.py

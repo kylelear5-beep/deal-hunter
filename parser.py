@@ -84,11 +84,18 @@ Return JSON matching the schema. Rules:
 - store_domain is the MERCHANT's domain (e.g. target.com, chase.com), never the site the
   text came from (reddit.com, slickdeals.net) and never a shortener (amzn.to, bit.ly).
 - promo_code: copy it exactly. NEVER invent a code. Use null when no code is needed.
-- category: COUPON = discount or promo code; CASHBACK_BONUS = sign-up/referral/cashback
-  money (banks, cards, apps); FREEBIE = something free; PRICE_ERROR = obvious mispricing.
+- discount_value: MUST be concrete: a price, $ or % savings, a free item, or a bonus
+  (e.g. '25% off', '$67 (was $129)', '$10 off', 'Free item'). Never vague words like
+  'Sale Price', 'Clearance Price', 'Special Offer' or 'Discount'.
+- category: COUPON = discount, clearance, sale or promo code; CASHBACK_BONUS =
+  sign-up/referral/cashback money (banks, cards, apps); FREEBIE = something free;
+  PRICE_ERROR = ONLY an obvious accidental mispricing (roughly 80%+ off a real brand, or
+  $1-$15 for a $100+ item). Normal sales, clearance and markdowns are COUPON, never
+  PRICE_ERROR.
 - expiration_date: YYYY-MM-DD if stated (resolve relative dates using today), else null.
 - merchant_url: the direct merchant/product link from the text, else null.
-- summary: plain words for WHAT is on sale (product/brand/type), max 12 words.
+- summary: plain words for WHAT is on sale (product/brand/type, plus was/now price if
+  shown), max 12 words.
 - Questions, discussions, expired or "dead" deals -> skip. If nothing qualifies,
   return {{"deals": []}}."""
 
@@ -99,6 +106,10 @@ DEAL_HINTS = re.compile(
 AGGREGATOR_DOMAINS = {"reddit.com", "redd.it", "slickdeals.net", "imgur.com", "youtube.com",
                       "youtu.be", "twitter.com", "x.com", "t.co", "bit.ly", "amzn.to", "a.co",
                       "tinyurl.com", "google.com"}
+VAGUE_DISCOUNTS = {"sale", "sale price", "on sale", "clearance", "clearance price",
+                   "discount", "special offer", "deal", "price drop", "markdown",
+                   "reduced price", "promo", "great price", "low price", "see price"}
+PRICE_ERROR_WORDS = re.compile(r"price ?error|glitch|mispric|pricing error", re.IGNORECASE)
 NULL_CODES = {"", "none", "null", "n/a", "na", "no code", "no code needed", "not needed",
               "no code required", "-"}
 
@@ -106,6 +117,28 @@ NULL_CODES = {"", "none", "null", "n/a", "na", "no code", "no code needed", "not
 # ----------------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------------
+def savings_fraction(text: str) -> float:
+    """Biggest savings stated in the text, 0..1: '85% off' -> .85, '$9 (was $120)' -> .925."""
+    text = text or ""
+    best = 0.0
+    for pct in re.findall(r"(\d{1,3}(?:\.\d+)?)\s*%", text):
+        if float(pct) <= 100:
+            best = max(best, float(pct) / 100)
+    prices = [float(p.replace(",", "")) for p in
+              re.findall(r"\$\s?(\d[\d,]*(?:\.\d+)?)", text)]
+    prices = [p for p in prices if p > 0]
+    if len(prices) >= 2 and max(prices) > 0:
+        best = max(best, 1 - min(prices) / max(prices))
+    return best
+
+
+def looks_like_price_error(discount: str, summary: str, text: str) -> bool:
+    """A real price error says so, or is at least half off."""
+    if PRICE_ERROR_WORDS.search(f"{discount} {summary} {text}"):
+        return True
+    return savings_fraction(f"{discount} {summary}") >= 0.5
+
+
 def normalize_domain(value: str) -> str:
     """'https://www.Target.com/p/x' -> 'target.com'."""
     value = (value or "").strip().lower()
@@ -169,6 +202,13 @@ def build_deal(ex: ExtractedDeal, item: RawItem, today: Optional[date] = None,
         return None
     code = (ex.promo_code or "").strip().strip('"\'')
     code = None if code.lower() in NULL_CODES else code
+    if not code and discount.lower().strip(" .!") in VAGUE_DISCOUNTS:
+        return None  # "Sale Price" with nothing concrete -> not worth posting
+    summary = (ex.summary or "").strip()[:140]
+    category = ex.category
+    if category == Category.PRICE_ERROR and not looks_like_price_error(
+            discount, summary, item.text[:2000]):
+        category = Category.COUPON  # a normal sale the AI over-labelled
     expires = parse_iso_date(ex.expiration_date)
     if expires and expires < today:
         return None  # expired -> discard
@@ -180,7 +220,7 @@ def build_deal(ex: ExtractedDeal, item: RawItem, today: Optional[date] = None,
         store_domain=domain,
         promo_code=code,
         discount_value=discount,
-        category=ex.category,
+        category=category,
         expiration_date=expires,
         source_url=item.url,
         affiliate_url=build_affiliate_url(merchant_url, deal_hash, domain),
@@ -188,7 +228,7 @@ def build_deal(ex: ExtractedDeal, item: RawItem, today: Optional[date] = None,
         created_at=now or datetime.now(timezone.utc),
         merchant_url=merchant_url,
         source=item.source,
-        summary=(ex.summary or "").strip()[:140],
+        summary=summary,
     )
 
 

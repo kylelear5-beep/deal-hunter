@@ -26,6 +26,9 @@ rss:
   - https://slickdeals.net/newsearch.php?q=cardo&searcharea=deals&searchin=first&rss=1
 
 # Priority 1: Reddit (uses public .json when REDDIT_CLIENT_ID is blank)
+  # DealNews tools feed (robots.txt allows; 2s crawl delay)
+  - https://www.dealnews.com/f1320/Tools/?rss=1
+
 reddit:
   limit: 15          # newest posts per subreddit per run
   subreddits:

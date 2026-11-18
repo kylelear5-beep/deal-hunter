@@ -303,3 +303,40 @@ async def test_ai_cap_per_run_and_saving_as_it_goes(db, monkeypatch):
     assert left == {item_hash(items[1])}       # Store8 saved; only the cut-off one remains
     assert await db.get_deal(build_deal(ex(store_domain="fast.com", merchant_url=None),
                                         items[0]).deal_hash)
+
+
+# -- upgrades: price errors, vague deals, affiliate networks --------------------------
+def test_vague_discount_without_code_is_dropped():
+    assert build_deal(ex(discount_value="Sale Price", promo_code=None), ITEM) is None
+    assert build_deal(ex(discount_value="Clearance", promo_code=None), ITEM) is None
+    assert build_deal(ex(discount_value="Sale Price", promo_code="SAVE5"), ITEM) is not None
+
+
+def test_normal_sale_is_not_a_price_error():
+    sale = build_deal(ex(discount_value="30% off", category=Category.PRICE_ERROR), ITEM)
+    assert sale.category == Category.COUPON
+    big = build_deal(ex(discount_value="$9 (was $120)", category=Category.PRICE_ERROR), ITEM)
+    assert big.category == Category.PRICE_ERROR
+    said = RawItem(text="Possible price error on this grill", url="u", source="rss:x")
+    assert build_deal(ex(discount_value="$40 off", category=Category.PRICE_ERROR),
+                      said).category == Category.PRICE_ERROR
+
+
+def test_per_store_affiliate_networks(monkeypatch):
+    monkeypatch.setattr(settings, "affiliate_templates",
+                        {"homedepot.com": "https://hd.pxf.io/c/1?u={url}&subId1={subid}",
+                         "rei.com": "https://avantlink.com/click?url={url}"})
+    monkeypatch.setattr(settings, "affiliate_generic_template", "https://gen.example/?u={url}")
+    monkeypatch.setattr(settings, "affiliate_generic_domains", [])
+    hd = affiliate.build_affiliate_url("https://www.homedepot.com/p/1", "abcdef1234567890xx")
+    assert hd.startswith("https://hd.pxf.io/c/1?u=https%3A%2F%2Fwww.homedepot.com")
+    assert "subId1=abcdef1234567890" in hd
+    assert affiliate.build_affiliate_url("https://rei.com/x").startswith("https://avantlink.com")
+    assert affiliate.build_affiliate_url("https://target.com/x").startswith("https://gen.example")
+
+
+def test_round_robin_gives_every_feed_a_turn():
+    from scraper import round_robin
+    a = [RawItem(text=f"a{i}", url="u", source="rss:a") for i in range(5)]
+    b = [RawItem(text="b0", url="u", source="rss:b")]
+    assert [i.text for i in round_robin([a, b])][:3] == ["a0", "b0", "a1"]

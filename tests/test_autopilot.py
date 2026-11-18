@@ -168,7 +168,7 @@ async def test_deleted_deal_post_is_skipped(db, channels):
 async def test_digest_skips_price_errors(db, channels):
     for v in ("$60 off chainsaw", "40% off boots", "$10 off feed"):
         await db.insert_deal(make("tractorsupply.com", v))
-    await db.insert_deal(make("tractorsupply.com", "$1 tractor", Category.PRICE_ERROR, None))
+    await db.insert_deal(make("tractorsupply.com", "$1 tractor (was $2000)", Category.PRICE_ERROR, None))
     fake = FakeTelegram()
     async with fake.client() as c:
         sent = await publisher.send_digest(db, client=c)
@@ -180,7 +180,7 @@ async def test_digest_skips_price_errors(db, channels):
 async def test_build_site(db, channels, tmp_path):
     await db.insert_deal(make("tractorsupply.com", "20% off <script>", summary="Feed"))
     await db.insert_deal(make("revzilla.com", "30% off", summary="Shoei helmet"))
-    await db.insert_deal(make("tractorsupply.com", "$1 tractor", Category.PRICE_ERROR, None))
+    await db.insert_deal(make("tractorsupply.com", "$1 tractor (was $2000)", Category.PRICE_ERROR, None))
     n = await sitegen.build_site(db, str(tmp_path))
     assert n >= 7
     home = (tmp_path / "index.html").read_text()
@@ -420,3 +420,21 @@ async def test_sheet_files_are_correct_and_hold_no_secrets(db, channels, tmp_pat
     deals = list(_csv.reader((tmp_path / "api" / "deals.csv").open()))
     assert deals[0][:3] == ["Found", "Niche", "Store"] and deals[1][2] == "Tractorsupply"
     assert deals[1][3].startswith(" =")                           # formula defused
+
+
+async def test_site_join_buttons_filters_and_counter(db, channels, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "discord_invite_url", "https://discord.gg/abc123")
+    monkeypatch.setattr(settings, "goatcounter_site", "farmmoto")
+    await db.insert_deal(make("tractorsupply.com", "20% off", summary="Feed"))
+    await db.insert_deal(make("tractorsupply.com", "$10 off", summary="Boots", code="B10"))
+    await sitegen.build_site(db, str(tmp_path))
+    home = (tmp_path / "index.html").read_text()
+    farm = (tmp_path / "farm" / "index.html").read_text()
+    assert "https://t.me/farmfree" in home and "https://discord.gg/abc123" in home
+    assert "-100111" not in home                                   # private channel never shown
+    assert 'class="filter-bar"' in farm and 'data-cat="COUPON"' in farm
+    assert "farmmoto.goatcounter.com" in farm
+    assert "cookie-free counter" in (tmp_path / "privacy.html").read_text()
+    monkeypatch.setattr(settings, "discord_invite_url", "https://discord.com/api/webhooks/1/x")
+    await sitegen.build_site(db, str(tmp_path))
+    assert "webhooks" not in (tmp_path / "index.html").read_text()  # a webhook is never published

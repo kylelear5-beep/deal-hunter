@@ -1,6 +1,7 @@
 """Central configuration: reads .env and sources.yaml once and exposes typed settings."""
 from __future__ import annotations
 
+import json
 import logging
 import os
 from dataclasses import dataclass, field
@@ -37,6 +38,22 @@ def _float(name: str, default: float) -> float:
 def _str(name: str, default: str = "") -> str:
     """Blank values in .env count as 'not set'."""
     return (os.getenv(name) or "").strip() or default
+
+
+def _json_dict(name: str) -> dict[str, str]:
+    """AFFILIATE_TEMPLATES_JSON={"homedepot.com": "https://...{url}...", ...}"""
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logging.getLogger("config").warning("%s is not valid JSON; ignoring it", name)
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(k).strip().lower().removeprefix("www."): str(v).strip()
+            for k, v in data.items() if str(k).strip() and str(v).strip()}
 
 
 def _list(name: str) -> list[str]:
@@ -89,6 +106,8 @@ class Settings:
     ebay_customid: str = _str("EBAY_CUSTOM_ID", "dealhunter")
     # Generic fallback, e.g. https://your.impact.link/c/123/456/789?u={url}&subId1={subid}
     affiliate_generic_template: str = _str("AFFILIATE_GENERIC_TEMPLATE", "")
+    affiliate_templates: dict = field(
+        default_factory=lambda: _json_dict("AFFILIATE_TEMPLATES_JSON"))
     # Only route these domains through the generic template (empty = every unmatched store)
     affiliate_generic_domains: list[str] = field(
         default_factory=lambda: [d.lower() for d in _list("AFFILIATE_GENERIC_DOMAINS")])
@@ -117,6 +136,9 @@ class Settings:
     click_tracking: bool = _bool("CLICK_TRACKING", True)
     site_name: str = _str("SITE_NAME", "Deal Hunter")
     site_contact_email: str = _str("SITE_CONTACT_EMAIL", "")
+    discord_invite_url: str = _str("DISCORD_INVITE_URL", "")      # public invite, NOT a webhook
+    cloudflare_analytics_token: str = _str("CLOUDFLARE_ANALYTICS_TOKEN", "")
+    goatcounter_site: str = _str("GOATCOUNTER_SITE", "")          # e.g. "farmmotodeals"
     timezone: str = _str("TIMEZONE", "America/New_York")
     free_delay_minutes: int = _int("FREE_DELAY_MINUTES", 60)
     paid_exclusive_price_errors: bool = _bool("PAID_EXCLUSIVE_PRICE_ERRORS", True)
