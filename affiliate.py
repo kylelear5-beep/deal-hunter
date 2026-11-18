@@ -89,9 +89,28 @@ def _apply_template(template: str, url: str, subid: str, host: str) -> str:
                     .replace("{domain}", quote(host, safe="")))
 
 
+def has_product_link(deal: dict) -> bool:
+    """True when the deal points at an actual product/offer page, not just the store's homepage."""
+    url = deal.get("merchant_url") or ""
+    return bool(url) and urlparse(url if "://" in url else "https://" + url).path.strip("/") != ""
+
+
+def best_link(deal: dict) -> str:
+    """Where a shopper should land: the product page (with our affiliate tag) when we know it,
+    otherwise the original deal post (it shows the exact item), never just a store homepage."""
+    if has_product_link(deal):
+        return deal.get("affiliate_url") or clean_url(deal["merchant_url"])
+    src = deal.get("source_url") or ""
+    if src.startswith(("http://", "https://")):
+        return src
+    return deal.get("affiliate_url") or f"https://{deal.get('store_domain', '')}"
+
+
 def plain_url_for_extension(deal: dict) -> str:
     """For domains listed in AFFILIATE_SKIP_IN_EXTENSION, give the extension a plain link."""
     domain = (deal.get("store_domain") or "").lower()
+    if not has_product_link(deal):
+        return best_link(deal)
     if any(host_matches(domain, d) for d in settings.affiliate_skip_in_extension):
-        return clean_url(deal.get("merchant_url") or f"https://{domain}")
+        return clean_url(deal["merchant_url"])
     return deal.get("affiliate_url") or ""

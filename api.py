@@ -22,7 +22,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
-from affiliate import plain_url_for_extension
+from affiliate import best_link, plain_url_for_extension
 from alerts import value_score
 from config import load_sources, settings
 from database import Database, hash_key
@@ -231,7 +231,7 @@ async def go(request: Request, short_id: str, c: str = "web"):
     if not deal:
         return RedirectResponse(settings.public_base_url or "/", status_code=302)
     await db.record_click(deal["deal_hash"], c)
-    target = deal.get("affiliate_url") or f"https://{deal['store_domain']}"
+    target = best_link(deal)
     return RedirectResponse(target, status_code=302)
 
 

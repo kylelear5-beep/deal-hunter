@@ -17,6 +17,7 @@ from urllib.parse import quote
 import httpx
 
 from alerts import CATEGORY_STYLE, DISCLOSURE, value_score
+from affiliate import best_link
 from config import settings
 from niches import Niche, TIERS, get_niche, load_niches
 
@@ -31,7 +32,7 @@ def tracked_link(deal: dict, channel_tag: str) -> str:
     """Short click-tracking link, or the affiliate link when no public URL is configured."""
     if settings.public_base_url and settings.click_tracking:
         return f"{settings.public_base_url}/go/{deal['deal_hash'][:12]}?c={quote(channel_tag)}"
-    return deal.get("affiliate_url") or f"https://{deal['store_domain']}"
+    return best_link(deal)
 
 
 # ----------------------------------------------------------------------------

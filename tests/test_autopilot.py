@@ -293,7 +293,7 @@ def test_go_redirect_counts_click(tmp_path, monkeypatch):
     asyncio.run(seed())
     with TestClient(api.app) as c:
         r = c.get(f"/go/{d.deal_hash[:12]}?c=moto-free-telegram", follow_redirects=False)
-        assert r.status_code == 302 and r.headers["location"].startswith("https://revzilla.com")
+        assert r.status_code == 302 and r.headers["location"] == ITEM.url  # no product link -> deal post
         assert c.get("/go/zzzzzzzzzzzz", follow_redirects=False).status_code == 302
 
     async def clicks():
@@ -338,14 +338,15 @@ async def test_static_site_for_github_pages(db, channels, tmp_path, monkeypatch)
     home = (tmp_path / "index.html").read_text()
     assert 'href="/deal-hunter/farm/"' in home and 'href="/farm/"' not in home
     assert 'href="/deal-hunter/store/tractorsupply.com.html"' in home
-    assert "/go/" not in home and "https://tractorsupply.com" in home      # direct links
+    assert "/go/" not in home and 'href="https://reddit.com/r/deals/9"' in home   # deal post, not homepage
+    assert 'href="https://tractorsupply.com"' not in home and "Opens the deal post on reddit.com" in home
     data = json.loads((tmp_path / "api" / "deals" / "amazon.com.json").read_text())
     assert data["count"] == 1 and "tag=kyle-20" in data["deals"][0]["affiliate_url"]
     assert "tag=" not in data["deals"][0]["extension_url"]
     index = json.loads((tmp_path / "api" / "index.json").read_text())
     assert index["domains"] == ["amazon.com", "tractorsupply.com"]
     # channel posts link straight to the store too
-    assert publisher.tracked_link(d.model_dump(mode="json"), "x").startswith("https://tractorsupply.com")
+    assert publisher.tracked_link(d.model_dump(mode="json"), "x") == ITEM.url   # channel posts get the deal post too
 
 
 async def test_actions_run_once(db, channels, tmp_path, monkeypatch):

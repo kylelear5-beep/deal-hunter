@@ -68,7 +68,8 @@ def value_score(deal: dict) -> float:
 
 
 def deal_link(deal: dict) -> str:
-    return deal.get("affiliate_url") or deal.get("merchant_url") or deal.get("source_url", "")
+    from affiliate import best_link
+    return best_link(deal)
 
 
 class Notifier:

@@ -15,7 +15,7 @@ from email.utils import format_datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-from affiliate import plain_url_for_extension
+from affiliate import best_link, has_product_link, plain_url_for_extension
 from alerts import CATEGORY_STYLE, DISCLOSURE, value_score
 from config import settings
 from niches import load_niches
@@ -195,7 +195,7 @@ def u(path: str) -> str:
 def go_link(deal: dict) -> str:
     if settings.click_tracking:
         return u(f"/go/{deal['deal_hash'][:12]}?c=web")
-    return deal.get("affiliate_url") or f"https://{deal['store_domain']}"
+    return best_link(deal)
 
 
 def _found(iso: str | None) -> str:
@@ -233,6 +233,10 @@ def card(deal: dict) -> str:
              f'<div class="value">{e(deal["discount_value"])}</div>']
     if deal.get("expiration_date"):
         parts.append(f'<div class="meta">Ends {e(str(deal["expiration_date"]))}</div>')
+    if not has_product_link(deal) and not settings.click_tracking:
+        host = urlparse(link).netloc.removeprefix("www.")
+        if host and host != deal["store_domain"]:
+            parts.append(f'<div class="meta">Opens the deal post on {e(host)}</div>')
     parts.append('<div class="actions">')
     if code:
         parts.append(f'<button class="copy" data-code="{e(code, quote=True)}" '

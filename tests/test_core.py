@@ -146,6 +146,7 @@ def test_high_value_rules():
 SAMPLE = {"deal_hash": "h1", "store_name": "A&B <Store>", "store_domain": "ab.com",
           "promo_code": "X1", "discount_value": "$99 off", "category": "PRICE_ERROR",
           "expiration_date": None, "source_url": "https://reddit.com/x",
+          "merchant_url": "https://ab.com/item/1",
           "affiliate_url": "https://ab.com/?tag=k", "is_verified": False}
 
 
@@ -340,3 +341,13 @@ def test_round_robin_gives_every_feed_a_turn():
     a = [RawItem(text=f"a{i}", url="u", source="rss:a") for i in range(5)]
     b = [RawItem(text="b0", url="u", source="rss:b")]
     assert [i.text for i in round_robin([a, b])][:3] == ["a0", "b0", "a1"]
+
+
+def test_best_link_never_sends_people_to_a_bare_homepage():
+    base = {"store_domain": "lowes.com", "affiliate_url": "https://lowes.com",
+            "source_url": "https://slickdeals.net/f/123-ladder"}
+    assert affiliate.best_link({**base, "merchant_url": None}) == "https://slickdeals.net/f/123-ladder"
+    assert affiliate.best_link({**base, "merchant_url": "https://www.lowes.com/"}) == base["source_url"]
+    item = {**base, "merchant_url": "https://www.lowes.com/pd/ladder/123",
+            "affiliate_url": "https://www.lowes.com/pd/ladder/123?aff=1"}
+    assert affiliate.best_link(item) == item["affiliate_url"]
