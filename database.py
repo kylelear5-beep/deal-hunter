@@ -133,6 +133,7 @@ def hash_key(api_key: str) -> str:
 MIGRATIONS = {  # column -> DDL, applied to databases created by older versions
     "summary": "ALTER TABLE deals ADD COLUMN summary TEXT NOT NULL DEFAULT ''",
     "niches": "ALTER TABLE deals ADD COLUMN niches TEXT NOT NULL DEFAULT ''",
+    "condition": "ALTER TABLE deals ADD COLUMN condition TEXT NOT NULL DEFAULT ''",
 }
 
 
@@ -181,13 +182,13 @@ class Database:
             """INSERT OR IGNORE INTO deals (deal_hash, store_name, store_domain, promo_code,
                    discount_value, category, expiration_date, source_url, affiliate_url,
                    merchant_url, source, is_verified, verify_status, created_at,
-                   summary, niches)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   summary, niches, condition)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (d["deal_hash"], d["store_name"], d["store_domain"], d["promo_code"],
              d["discount_value"], d["category"], d["expiration_date"], d["source_url"],
              d["affiliate_url"], d["merchant_url"], d["source"], int(d["is_verified"]),
              status, d["created_at"], d.get("summary") or "",
-             ",".join(d.get("niches") or [])))
+             ",".join(d.get("niches") or []), d.get("condition") or ""))
         await self.conn.commit()
         return cur.rowcount == 1
 

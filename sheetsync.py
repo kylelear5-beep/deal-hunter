@@ -212,6 +212,13 @@ async def status_rows(db, tg: Telegram) -> list[list]:
     return rows
 
 
+async def _open_box_count(db, since: str) -> int:
+    cur = await db.conn.execute(
+        "SELECT COUNT(*) FROM deals WHERE condition != '' AND created_at >= ? "
+        "AND (expiration_date IS NULL OR expiration_date >= date('now'))", (since,))
+    return (await cur.fetchone())[0]
+
+
 async def stats_rows(db, tg: Telegram) -> list[list]:
     now = datetime.now(timezone.utc)
     day = (now - timedelta(hours=24)).isoformat(timespec="seconds")
@@ -230,6 +237,7 @@ async def stats_rows(db, tg: Telegram) -> list[list]:
             ["Waiting for the AI (backlog)", summary.get("waiting", "")],
             ["Last scan error", last.get("error") or "none"],
             ["Deals found (24 hours)", await db.count_new_deals(day)],
+            ["Open box / refurbished (live, 7 days)", await _open_box_count(db, week)],
             ["Deals found (7 days)", await db.count_new_deals(week)]]
     for n in load_niches():
         rows.append([f"{n.name} (7 days)", week_niches.get(n.id, 0)])

@@ -55,6 +55,22 @@ class Deal(BaseModel):
     source: str = ""
     summary: str = ""
     niches: list[str] = []
+    condition: str = ""          # "" (new), "open box" or "refurbished"
+
+
+OPEN_BOX_WORDS = re.compile(r"\bopen[- ]?box(ed)?\b", re.IGNORECASE)
+REFURB_WORDS = re.compile(r"\b(refurb(ished)?|renewed|recertified|reconditioned|"
+                          r"certified pre-?owned|seller refurbished)\b", re.IGNORECASE)
+
+
+def detect_condition(*texts: str) -> str:
+    """'open box', 'refurbished' or '' (new), from the deal's title/summary/value."""
+    joined = " ".join(t for t in texts if t)
+    if OPEN_BOX_WORDS.search(joined):
+        return "open box"
+    if REFURB_WORDS.search(joined):
+        return "refurbished"
+    return ""
 
 
 class ExtractedDeal(BaseModel):
@@ -230,6 +246,7 @@ def build_deal(ex: ExtractedDeal, item: RawItem, today: Optional[date] = None,
         merchant_url=merchant_url,
         source=item.source,
         summary=summary,
+        condition=detect_condition(item.text.split("\n", 1)[0], summary, discount),
     )
 
 

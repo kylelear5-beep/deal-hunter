@@ -132,6 +132,7 @@ function run(){var t=(q&&q.value||'').trim().toLowerCase(),n=0,s=storeSel&&store
  ni=nicheSel&&nicheSel.value;
  cards.forEach(function(c){var d=c.dataset,ok=
   (mode==='ALL'||(mode==='VERIFIED'?d.verified==='1':mode==='CODES'?d.code!=='':
+   mode==='OPENBOX'?!!d.cond:
    mode==='SAVED'?!!watch[d.hash]:d.cat===mode))&&(!s||d.store===s)&&
   (!ni||(','+d.niches+',').indexOf(','+ni+',')>-1)&&(!t||(d.text||'').indexOf(t)>-1);
   c.style.display=ok?'':'none';if(ok)n++});
@@ -219,6 +220,7 @@ def card(deal: dict) -> str:
     attrs = {"data-cat": str(deal["category"]), "data-verified": "1" if verified else "0",
              "data-text": search_text, "data-store": deal["store_name"],
              "data-niches": ",".join(deal.get("niches") or []), "data-code": code,
+             "data-cond": deal.get("condition") or "",
              "data-hash": deal["deal_hash"][:16], "data-new": str(deal.get("created_at") or ""),
              "data-title": title, "data-value": deal["discount_value"], "data-link": link}
     attr = " ".join(f'{k}="{e(v, quote=True)}"' for k, v in attrs.items())
@@ -256,6 +258,8 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
     niches = load_niches()
     nav = "".join(f'<a href="{u("/" + n.id + "/")}"{" class=on" if n.id == active else ""}>'
                   f'{e(n.emoji)} {e(n.name.replace(" Deals", ""))}</a>' for n in niches)
+    nav += (f'<a href="{u("/open-box/")}"{" class=on" if active == "open-box" else ""}>'
+            '📦 Open Box</a>')
     home_on = ' class=on' if active == "home" else ""
     share = ""
     if settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
@@ -336,7 +340,7 @@ def filter_bar(count: int, niches: list | None = None) -> str:
         return ""
     pills = [("ALL", "All"), ("CODES", "Promo codes"), ("FREEBIE", "Freebies"),
              ("PRICE_ERROR", "Price errors"), ("CASHBACK_BONUS", "Cash bonuses"),
-             ("VERIFIED", "Verified"), ("SAVED", "☆ Saved")]
+             ("OPENBOX", "📦 Open box"), ("VERIFIED", "Verified"), ("SAVED", "☆ Saved")]
     buttons = "".join(f'<button type="button" class="pill{" active" if k == "ALL" else ""}" '
                       f'data-filter="{k}">{label}</button>' for k, label in pills)
     niche_sel = ""
@@ -536,6 +540,20 @@ async def build_site(db, out_dir: str | None = None) -> int:
                                                 f"sales and freebies.", active=n.id))
         urls.append(f"/{n.id}/")
         written += 1
+
+    # Open box & refurbished page (across every category)
+    open_box = sorted((d for d in recent_all.values() if d.get("condition")),
+                      key=lambda d: str(d.get("created_at") or ""), reverse=True)[:240]
+    body = ("<h1>📦 Open Box &amp; Refurbished Deals</h1><p class='lead'>Open-box, refurbished "
+            "and renewed items, often much cheaper than new. Check the condition and warranty "
+            f"before you buy. {len(open_box)} live deals.</p>"
+            f"{filter_bar(len(open_box), niches)}{deal_grid(open_box)}")
+    _write(root, "open-box/index.html",
+           page(f"Open box & refurbished deals | {settings.site_name}", body,
+                "Open-box, refurbished and renewed deals from Amazon, Best Buy, Walmart and "
+                "more, updated every 30 minutes.", active="open-box"))
+    urls.append("/open-box/")
+    written += 1
 
     # Store pages
     for domain, deals in stores.items():

@@ -67,14 +67,19 @@ def value_score(deal: dict) -> float:
     return score
 
 
+CONDITION_LABEL = {"open box": "📦 OPEN BOX", "refurbished": "♻️ REFURBISHED"}
+
+
 def deal_label(deal: dict) -> tuple[str, int]:
-    """Label + color. A 'coupon' with no code is just a sale, so say so."""
+    """Label + color. A 'coupon' with no code is just a sale, so say so.
+    Open-box / refurbished items always say so, so nobody mistakes them for new."""
     label, color = CATEGORY_STYLE.get(deal.get("category"), ("🏷️ DEAL", 0x9E9E9E))
     if deal.get("category") == "COUPON" and not deal.get("promo_code"):
-        return ("💲 SALE", color)
-    if deal.get("category") == "COUPON":
-        return ("🏷️ COUPON CODE", color)
-    return label, color
+        label = "💲 SALE"
+    elif deal.get("category") == "COUPON":
+        label = "🏷️ COUPON CODE"
+    cond = CONDITION_LABEL.get(deal.get("condition") or "")
+    return (f"{cond} · {label}" if cond else label), color
 
 
 def deal_link(deal: dict) -> str:
