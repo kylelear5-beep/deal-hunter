@@ -157,15 +157,18 @@ async def status_rows(db, tg: Telegram) -> list[list]:
                      f"{n.id.upper()}_PREMIUM_URL"])
 
     # Sources
+    from config import load_sources
+    subs = (load_sources().get("reddit") or {}).get("subreddits") or []
     reddit_keys = bool(settings.reddit_client_id and settings.reddit_client_secret)
     reddit_count = sources.get("reddit")
-    if reddit_keys:
-        rows.append(["Reddit", OK if reddit_count else PROBLEM, f"{reddit_count or 0} posts last run",
-                     "", "REDDIT_CLIENT_ID"])
+    if not subs:
+        rows.append(["Reddit", OFF, "removed",
+                     "Off: Reddit closed free API access, so it's not scanned", "sources.yaml"])
+    elif reddit_count:
+        rows.append(["Reddit", OK, f"{reddit_count} posts last run", "", "REDDIT_CLIENT_ID"])
     else:
-        rows.append(["Reddit", PROBLEM if not reddit_count else OK,
-                     f"{reddit_count or 0} posts last run",
-                     "Blocked on GitHub without free Reddit API keys" if not reddit_count else "",
+        rows.append(["Reddit", PROBLEM, "0 posts last run",
+                     "" if reddit_keys else "Blocked on GitHub without Reddit API keys",
                      "REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET"])
     rss = sources.get("rss", 0)
     rows.append(["Slickdeals feeds", OK if rss else PROBLEM, f"{rss} posts last run", "", "sources.yaml"])

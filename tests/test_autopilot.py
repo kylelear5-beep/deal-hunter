@@ -421,7 +421,7 @@ async def test_sheet_files_are_correct_and_hold_no_secrets(db, channels, tmp_pat
     assert status["Farm channel (Telegram)"][1:3] == ["OK", "@farmfree"]
     assert status["Farm Premium channel (Telegram)"][1:3] == ["Problem", "private channel (set)"]
     assert status["Farm channel (Discord)"][1:3] == ["OK", "set"]
-    assert status["Reddit"][1] == "Problem"                       # blocked: 0 posts, no keys
+    assert status["Reddit"][1:3] == ["Off", "removed"]               # Reddit turned off in sources.yaml
     assert status["eBay Partner Network"][1:3] == ["OK", "set"]
     assert status["Gemini key"][1:3] == ["OK", "set"]
 

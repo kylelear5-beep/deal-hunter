@@ -33,20 +33,11 @@ rss:
 
 # Priority 1: Reddit (uses public .json when REDDIT_CLIENT_ID is blank)
 
+# Reddit is OFF: Reddit closed free self-service API access (Nov 2025) and blocks
+# GitHub's servers without keys. List subreddits here again if that ever changes.
 reddit:
-  limit: 15          # newest posts per subreddit per run
-  subreddits:
-    - motorcycledeals
-    - motorcyclegear
-    - ToolDealsDaily
-    - ToolDeals
-    - MilwaukeeTool
-    - harborfreight
-    - outdoordeals
-    - HuntingGearDeals
-    - buildapcsales
-    - deals
-    - freebies
+  limit: 15
+  subreddits: []
 
 # Priority 2: web pages. mode = auto | static | dynamic
 websites: []
