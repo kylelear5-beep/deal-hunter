@@ -264,6 +264,43 @@ async def cmd_revoke_key(prefix: str) -> None:
     print("Revoked." if n else "No key with that prefix (see: python main.py list-keys)")
 
 
+async def recheck_saved_deals(db) -> dict:
+    """Apply today's rules to deals saved earlier (idempotent, cheap):
+    - 'price errors' with no evidence become normal deals
+    - vague 'Sale Price'-style deals with no code are retired (expired yesterday)
+    - eBay links pick up the Campaign ID once it is set"""
+    from datetime import date, timedelta
+    from affiliate import build_affiliate_url
+    from parser import VAGUE_DISCOUNTS, looks_like_price_error
+    fixed = {"price_errors": 0, "vague": 0, "ebay": 0}
+    cur = await db.conn.execute(
+        "SELECT deal_hash, category, discount_value, summary, promo_code, store_domain, "
+        "merchant_url, affiliate_url FROM deals WHERE expiration_date IS NULL "
+        "OR expiration_date >= ?", (date.today().isoformat(),))
+    rows = await cur.fetchall()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    for h, cat, disc, summ, code, domain, merchant, aff in rows:
+        disc, summ = disc or "", summ or ""
+        if not code and disc.lower().strip(" .!") in VAGUE_DISCOUNTS:
+            await db.conn.execute("UPDATE deals SET expiration_date = ? WHERE deal_hash = ?",
+                                  (yesterday, h))
+            fixed["vague"] += 1
+            continue
+        if cat == "PRICE_ERROR" and not looks_like_price_error(disc, summ, ""):
+            await db.conn.execute("UPDATE deals SET category = 'COUPON' WHERE deal_hash = ?", (h,))
+            fixed["price_errors"] += 1
+        if settings.ebay_campid and (domain or "").endswith("ebay.com") and "campid=" not in (aff or ""):
+            new = build_affiliate_url(merchant, h, domain)
+            if new and new != aff:
+                await db.conn.execute("UPDATE deals SET affiliate_url = ? WHERE deal_hash = ?",
+                                      (new, h))
+                fixed["ebay"] += 1
+    await db.conn.commit()
+    if any(fixed.values()):
+        log.info("Re-checked saved deals: %s", fixed)
+    return fixed
+
+
 async def run_actions_once(db, extractor) -> dict:
     """One GitHub Actions run: a scan, then every scheduled job that is due right now.
     Jobs keep their once-a-day / once-a-week memory in the database between runs."""
@@ -273,6 +310,10 @@ async def run_actions_once(db, extractor) -> dict:
         from watchdog import notify_owner
         await notify_owner(f"✅ {settings.site_name} autopilot started on GitHub.")
     summary = {}
+    try:
+        await recheck_saved_deals(db)
+    except Exception as exc:  # noqa: BLE001 - a cleanup problem must never stop a run
+        log.warning("Re-check of saved deals failed: %s", exc)
     try:
         summary = await run_pipeline(db, make_dispatcher(), extractor)
     except Exception as exc:  # noqa: BLE001 - still post, build the site and run the watchdog

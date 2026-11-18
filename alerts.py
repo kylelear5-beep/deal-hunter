@@ -67,6 +67,16 @@ def value_score(deal: dict) -> float:
     return score
 
 
+def deal_label(deal: dict) -> tuple[str, int]:
+    """Label + color. A 'coupon' with no code is just a sale, so say so."""
+    label, color = CATEGORY_STYLE.get(deal.get("category"), ("🏷️ DEAL", 0x9E9E9E))
+    if deal.get("category") == "COUPON" and not deal.get("promo_code"):
+        return ("💲 SALE", color)
+    if deal.get("category") == "COUPON":
+        return ("🏷️ COUPON CODE", color)
+    return label, color
+
+
 def deal_link(deal: dict) -> str:
     from affiliate import best_link
     return best_link(deal)
@@ -87,7 +97,7 @@ class DiscordNotifier(Notifier):
 
     @staticmethod
     def build_payload(deal: dict) -> dict[str, Any]:
-        label, color = CATEGORY_STYLE.get(deal["category"], ("DEAL", 0x9E9E9E))
+        label, color = deal_label(deal)
         fields = [
             {"name": "Deal", "value": deal["discount_value"][:1024], "inline": True},
             {"name": "Code", "value": f"`{deal['promo_code']}`" if deal.get("promo_code")
@@ -138,7 +148,7 @@ class TelegramNotifier(Notifier):
     @staticmethod
     def build_text(deal: dict) -> str:
         e = html.escape
-        label, _ = CATEGORY_STYLE.get(deal["category"], ("DEAL", 0))
+        label, _ = deal_label(deal)
         lines = [f"<b>{e(label)} · {e(deal['store_name'])}</b>",
                  f"<b>Deal:</b> {e(deal['discount_value'])}"]
         if deal.get("promo_code"):

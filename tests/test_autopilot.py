@@ -534,3 +534,31 @@ async def test_impact_verification_tag_on_homepage(db, channels, tmp_path):
     home = (tmp_path / "index.html").read_text()
     assert "<meta name='impact-site-verification' value='c24d86da-e5e2-4ab0-ab86-50c5450d193c'>" in home
     assert "impact-site-verification" not in (tmp_path / "about.html").read_text()
+
+
+async def test_recheck_saved_deals_and_sale_labels(db, channels, monkeypatch):
+    fake = make("ruralking.com", "$5.99", Category.PRICE_ERROR, None, summary="27 gallon tote")
+    real = make("homedepot.com", "Price Mistake", Category.PRICE_ERROR, None, summary="Track saw")
+    vague = make("homedepot.com", "20% off", code=None, summary="Utility knife")
+    fake.category = Category.PRICE_ERROR            # saved before the price-error rule existed
+    for d in (fake, real):
+        await db.insert_deal(d)
+    vague.discount_value = "Sale Price"           # saved before the vague-deal rule existed
+    await db.insert_deal(vague)
+    ebay = build_deal(ExtractedDeal(store_name="eBay", store_domain="ebay.com",
+                                    merchant_url="https://www.ebay.com/itm/123", promo_code=None,
+                                    discount_value="$50 off", category=Category.COUPON,
+                                    expiration_date=None, summary="Shoei helmet"), ITEM)
+    await db.insert_deal(ebay)
+    monkeypatch.setattr(settings, "ebay_campid", "5339253664")
+    fixed = await main.recheck_saved_deals(db)
+    assert fixed == {"price_errors": 1, "vague": 1, "ebay": 1}
+    rows, _ = await db.query_deals(verified_only=False, limit=50)
+    by = {r["summary"]: r for r in rows}
+    assert by["27 gallon tote"]["category"] == "COUPON" and by["Track saw"]["category"] == "PRICE_ERROR"
+    assert "Utility knife" not in by                                   # retired
+    assert "campid=5339253664" in by["Shoei helmet"]["affiliate_url"]
+    assert await main.recheck_saved_deals(db) == {"price_errors": 0, "vague": 0, "ebay": 0}  # idempotent
+    from alerts import deal_label
+    assert deal_label(by["27 gallon tote"])[0] == "💲 SALE"
+    assert deal_label({"category": "COUPON", "promo_code": "X"})[0] == "🏷️ COUPON CODE"

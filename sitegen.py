@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from affiliate import best_link, has_product_link, plain_url_for_extension
-from alerts import CATEGORY_STYLE, DISCLOSURE, value_score
+from alerts import CATEGORY_STYLE, DISCLOSURE, deal_label, value_score
 from config import settings
 from niches import load_niches
 
@@ -208,7 +208,7 @@ def _found(iso: str | None) -> str:
 
 def card(deal: dict) -> str:
     """One deal card. Only real data: store, what, the discount, code, dates, link."""
-    label, _ = CATEGORY_STYLE.get(deal["category"], ("🏷️ DEAL", 0))
+    label, _ = deal_label(deal)
     verified = bool(deal.get("is_verified"))
     code = deal.get("promo_code") or ""
     title = deal.get("summary") or f"{deal['store_name']} deal"

@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 import httpx
 
-from alerts import CATEGORY_STYLE, DISCLOSURE, value_score
+from alerts import CATEGORY_STYLE, DISCLOSURE, deal_label, value_score
 from affiliate import best_link
 from config import settings
 from niches import Niche, TIERS, get_niche, load_niches
@@ -72,7 +72,7 @@ async def enqueue_deal(db, deal: dict) -> int:
 # Message builders
 # ----------------------------------------------------------------------------
 def _title(deal: dict) -> str:
-    label, _ = CATEGORY_STYLE.get(deal["category"], ("DEAL", 0))
+    label, _ = deal_label(deal)
     return f"{label} · {deal['store_name']}"
 
 

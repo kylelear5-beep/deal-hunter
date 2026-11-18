@@ -109,7 +109,7 @@ AGGREGATOR_DOMAINS = {"reddit.com", "redd.it", "slickdeals.net", "imgur.com", "y
 VAGUE_DISCOUNTS = {"sale", "sale price", "on sale", "clearance", "clearance price",
                    "discount", "special offer", "deal", "price drop", "markdown",
                    "reduced price", "promo", "great price", "low price", "see price"}
-PRICE_ERROR_WORDS = re.compile(r"price ?error|glitch|mispric|pricing error", re.IGNORECASE)
+PRICE_ERROR_WORDS = re.compile(r"price ?error|price ?mistake|glitch|mispric|pricing error", re.IGNORECASE)
 NULL_CODES = {"", "none", "null", "n/a", "na", "no code", "no code needed", "not needed",
               "no code required", "-"}
 
