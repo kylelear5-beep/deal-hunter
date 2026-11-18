@@ -36,7 +36,7 @@ jobs:
       CLICK_TRACKING: "false"
       PUBLIC_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
       LOOP_MINUTES: "30"
-      MAX_AI_ITEMS_PER_RUN: "20"   # free Gemini limit; this wins over the ENV_FILE value
+      MAX_AI_ITEMS_PER_RUN: "10"   # free Gemini limit is 500 a day; 48 runs x 10 = 480
       PYTHONUTF8: "1"
     steps:
       - name: Note start time

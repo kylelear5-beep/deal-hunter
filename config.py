@@ -73,7 +73,7 @@ class Settings:
     llm_max_rpm: int = _int("LLM_MAX_RPM", 10)
     llm_max_chars: int = _int("LLM_MAX_CHARS", 12000)
     # Most posts the AI reads in one run; the rest wait for the next run (free-tier friendly)
-    max_ai_items_per_run: int = _int("MAX_AI_ITEMS_PER_RUN", 20)
+    max_ai_items_per_run: int = _int("MAX_AI_ITEMS_PER_RUN", 10)
 
     # Reddit (optional; public .json fallback is used without these)
     reddit_client_id: str = _str("REDDIT_CLIENT_ID", "")
