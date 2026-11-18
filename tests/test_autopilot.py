@@ -76,13 +76,24 @@ def channels(monkeypatch):
 
 # -- niches --------------------------------------------------------------------
 def test_niche_matching():
-    assert {n.id for n in load_niches()} == {"farm", "moto"}
+    assert {n.id for n in load_niches()} == {"farm", "moto", "tools", "auto", "electronics", "other"}
     assert match_niches({"store_domain": "tractorsupply.com", "discount_value": "10% off"}) \
         == ["farm"]
     assert match_niches({"store_domain": "amazon.com", "summary": "Sena 50S intercom",
                          "discount_value": "$80 off"}) == ["moto"]
     assert match_niches({"store_domain": "amazon.com", "summary": "Stihl chainsaw",
                          "discount_value": "$50 off"}) == ["farm"]
+    assert match_niches({"store_domain": "homedepot.com", "summary": "Milwaukee M18 drill",
+                         "discount_value": "30% off"}) == ["farm", "tools"]
+    assert match_niches({"store_domain": "autozone.com", "summary": "Floor jack",
+                         "discount_value": "$40 off"}) == ["auto"]
+    assert match_niches({"store_domain": "bestbuy.com", "summary": "Anker USB-C 100W charger",
+                         "discount_value": "40% off"}) == ["electronics"]
+    # fallback category catches general retail only when no primary niche matches
+    assert match_niches({"store_domain": "walmart.com", "summary": "Robot vacuum",
+                         "discount_value": "$100 off"}) == ["other"]
+    assert match_niches({"store_domain": "walmart.com", "summary": "Anker power bank",
+                         "discount_value": "25% off"}) == ["electronics"]
     assert match_niches({"store_domain": "pizzahut.com", "summary": "Large pizza",
                          "discount_value": "50% off"}) == []
     # whole words only: "feedback" must not match "feed"

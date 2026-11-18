@@ -21,6 +21,7 @@ class Niche:
     emoji: str = "🏷️"
     stores: list[str] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
+    fallback: bool = False
 
     @property
     def _pattern(self) -> re.Pattern | None:
@@ -71,7 +72,8 @@ def _load(path: str) -> tuple[Niche, ...]:
         out.append(Niche(id=str(n["id"]).lower(), name=n.get("name", n["id"]),
                          emoji=n.get("emoji", "🏷️"),
                          stores=[s.lower() for s in n.get("stores", [])],
-                         keywords=[k.lower() for k in n.get("keywords", [])]))
+                         keywords=[k.lower() for k in n.get("keywords", [])],
+                         fallback=bool(n.get("fallback", False))))
     return tuple(out)
 
 
@@ -87,4 +89,8 @@ def match_niches(deal: dict, niches: list[Niche] | None = None) -> list[str]:
     niches = niches if niches is not None else load_niches()
     text = " ".join(str(deal.get(k) or "") for k in
                     ("summary", "discount_value", "store_name"))
-    return [n.id for n in niches if n.matches(deal.get("store_domain", ""), text)]
+    domain = deal.get("store_domain", "")
+    primary = [n.id for n in niches if not n.fallback and n.matches(domain, text)]
+    if primary:
+        return primary
+    return [n.id for n in niches if n.fallback and n.matches(domain, text)]
