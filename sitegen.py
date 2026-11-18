@@ -234,6 +234,9 @@ def rss_xml(deals: list[dict]) -> str:
             desc_parts.append("Verified at checkout")
         desc = " | ".join(p for p in desc_parts if p)
         link = go_link(d)
+        if link.startswith("/"):   # click-tracking links are site-relative; feeds need full URLs
+            link = urlparse(base)._replace(path="", query="", fragment="").geturl() + link \
+                if base else link
         items.append(
             f"<item><title>{e(title)}</title><link>{e(link)}</link>"
             f'<guid isPermaLink="false">{e(d["deal_hash"])}</guid>'

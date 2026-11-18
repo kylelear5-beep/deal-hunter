@@ -465,3 +465,14 @@ def test_package_extension(tmp_path):
     assert "manifest.json" in names
     assert "background.js" in names
     assert "icons/icon128.png" in names
+
+
+async def test_rss_links_are_full_urls_with_click_tracking(db, channels, tmp_path, monkeypatch):
+    import xml.etree.ElementTree as ET
+    monkeypatch.setattr(settings, "public_base_url", "https://deals.example/sub")
+    monkeypatch.setattr(settings, "click_tracking", True)
+    await db.insert_deal(make("tractorsupply.com", "20% off", summary="Feed"))
+    await sitegen.build_site(db, str(tmp_path))
+    root = ET.fromstring((tmp_path / "rss.xml").read_text(encoding="utf-8"))
+    link = root.find("./channel/item/link").text
+    assert link.startswith("https://deals.example/sub/go/")
