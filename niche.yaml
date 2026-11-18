@@ -239,6 +239,42 @@ niches:
       - nas
       - ups battery
 
+  - id: astro
+    name: Astro & Optics Deals
+    emoji: "🔭"
+    stores:
+      - highpointscientific.com
+      - agenaastro.com
+      - optcorp.com
+      - telescopes.com
+      - telescope.com
+      - celestron.com
+      - zwoastro.com
+      - dwarflab.com
+      - skywatcherusa.com
+      - astronomics.com
+      - adorama.com
+    keywords:
+      - telescope
+      - astrophotography
+      - astro camera
+      - celestron
+      - sky-watcher
+      - skywatcher
+      - zwo
+      - seestar
+      - dwarf 3
+      - dwarflab
+      - unistellar
+      - vaonis
+      - star tracker
+      - equatorial mount
+      - eq mount
+      - planisphere
+      - binoculars
+      - spotting scope
+      - night vision
+
   - id: other
     name: Everyday & Home Deals
     emoji: "🛒"

@@ -76,7 +76,7 @@ def channels(monkeypatch):
 
 # -- niches --------------------------------------------------------------------
 def test_niche_matching():
-    assert {n.id for n in load_niches()} == {"farm", "moto", "tools", "auto", "electronics", "other"}
+    assert {n.id for n in load_niches()} == {"farm", "moto", "tools", "auto", "electronics", "astro", "other"}
     assert match_niches({"store_domain": "tractorsupply.com", "discount_value": "10% off"}) \
         == ["farm"]
     assert match_niches({"store_domain": "amazon.com", "summary": "Sena 50S intercom",
@@ -505,3 +505,24 @@ async def test_tiktok_scripts_page_generated(db, channels, tmp_path):
     assert "$1 tractor" not in scripts_html
     assert "Disallow: /scripts.html" in (tmp_path / "robots.txt").read_text(encoding="utf-8")
     assert "scripts.html" not in (tmp_path / "sitemap.xml").read_text(encoding="utf-8")
+
+
+async def test_new_design_home_has_real_deals_only(db, channels, tmp_path):
+    await db.insert_deal(make("tractorsupply.com", "20% off", summary="Chicken feeder"))
+    await db.insert_deal(make("revzilla.com", "$40 off", summary="Cardo intercom", code="RIDE40"))
+    await sitegen.build_site(db, str(tmp_path))
+    home = (tmp_path / "index.html").read_text()
+    assert "Chicken feeder" in home and "Cardo intercom" in home
+    assert 'data-code="RIDE40"' in home and 'id="wl-open"' in home        # copy + watchlist
+    assert 'data-role="niche"' in home and 'data-role="store"' in home   # category + store pickers
+    assert "2 live deals" in home and "2 promo codes" in home            # counts come from real data
+    for fake in ("90-Day", "votes", "verified savings", "Editor"):       # nothing invented
+        assert fake not in home
+    assert "affiliate" in home.lower()                                   # disclosure on every page
+    farm = (tmp_path / "farm" / "index.html").read_text()
+    assert 'class=on' in farm and "Chicken feeder" in farm
+
+
+def test_astro_category_matches_telescopes():
+    d = {"summary": "Celestron NexStar telescope", "store_domain": "amazon.com", "discount_value": "$200 off"}
+    assert "astro" in match_niches(d)

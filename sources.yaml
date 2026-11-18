@@ -25,6 +25,12 @@ rss:
   - https://slickdeals.net/newsearch.php?q=sena&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=cardo&searcharea=deals&searchin=first&rss=1
 
+  # Astro & optics searches
+  - https://slickdeals.net/newsearch.php?q=telescope&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=celestron&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=seestar&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=binoculars&searcharea=deals&searchin=first&rss=1
+
   # DealNews category feeds (robots.txt allows; 2s crawl delay)
   - https://www.dealnews.com/f1320/Tools/?rss=1
   - https://www.dealnews.com/c142/Electronics/?rss=1

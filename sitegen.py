@@ -24,65 +24,157 @@ log = logging.getLogger("sitegen")
 e = html.escape
 
 CSS = """
-:root{--bg:#0b0b0b;--card:#1a1a1a;--text:#fff;--muted:#d0d0d0;--accent:#ffd400;--border:#5a5a5a}
+:root{--bg:#f4f6fa;--card:#fff;--text:#111827;--muted:#4b5563;--line:#d1d5db;--blue:#1d4ed8;
+  --blue-d:#1e40af;--green:#047857;--green-bg:#dcfce7;--amber:#b45309;--amber-bg:#fef3c7}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:18px/1.5 "Segoe UI",Arial,sans-serif}
-a{color:var(--accent)}
-.wrap{max-width:980px;margin:0 auto;padding:0 16px}
-header{border-bottom:2px solid var(--border);padding:18px 0}
-header .wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-.logo{font-size:26px;font-weight:800;color:var(--text);text-decoration:none}
-nav{display:flex;flex-wrap:wrap;gap:10px 16px}
-nav a{font-weight:700;text-decoration:none;font-size:17px}
-h1{font-size:32px;margin:26px 0 6px} h2{font-size:26px;margin:34px 0 12px}
-.lead{color:var(--muted);font-size:19px;margin:0 0 18px}
-.premium{display:inline-block;background:var(--accent);color:#000;font-weight:800;
-  padding:12px 18px;border-radius:10px;text-decoration:none;margin:6px 0 10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:14px}
-.card.verified{border-color:var(--accent)}
-.store{color:var(--muted);font-size:16px}
-.what{font-size:18px;margin:4px 0}
-.value{font-size:22px;font-weight:800}
-.badge{font-size:14px;font-weight:800;margin-left:6px}
-.code{display:flex;gap:8px;margin:10px 0}
-.code code{flex:1;border:2px dashed var(--accent);border-radius:8px;padding:6px;text-align:center;
-  font:700 19px Consolas,"Courier New",monospace}
-.btn{display:block;text-align:center;font-weight:800;padding:10px;border-radius:8px;
-  text-decoration:none;border:2px solid var(--text);color:var(--text);margin-top:8px}
-button.copy{background:var(--accent);color:#000;border:0;border-radius:8px;font-weight:800;
-  padding:0 12px;font-size:16px;cursor:pointer}
-.meta{color:var(--muted);font-size:15px;margin-top:6px}
-footer{border-top:2px solid var(--border);margin-top:40px;padding:18px 0;color:var(--muted);
-  font-size:15px}
-.empty{color:var(--muted);font-size:19px}
-.join-bar{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 14px}
-.join-btn{background:#2aa1da;color:#fff;font-weight:800;padding:10px 16px;border-radius:10px;
+body{margin:0;background:var(--bg);color:var(--text);
+  font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+a{color:var(--blue)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px}
+header.top{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);
+  box-shadow:0 1px 3px rgba(15,23,42,.06)}
+.row1{display:flex;align-items:center;gap:12px;padding:10px 0}
+.logo{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:800;color:var(--text);
+  text-decoration:none;white-space:nowrap}
+.logo .mark{width:36px;height:36px;border-radius:10px;background:var(--blue);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:19px}
+.logo b{color:var(--blue)}
+.search{flex:1;display:flex;align-items:center;gap:8px;min-width:0;height:46px;padding:0 12px;
+  border:2px solid var(--line);border-radius:12px;background:#f9fafb}
+.search:focus-within{border-color:var(--blue);background:#fff}
+.search input{flex:1;min-width:0;border:0;background:transparent;font-size:17px;color:var(--text);
+  outline:none}
+.hbtn{display:inline-flex;align-items:center;gap:6px;min-height:46px;padding:0 14px;border-radius:12px;
+  font-weight:800;font-size:15px;text-decoration:none;cursor:pointer;border:0;white-space:nowrap}
+.hbtn.dark{background:#111827;color:#fff}
+.hbtn.green{background:var(--green);color:#fff}
+.hbtn .n{background:#fbbf24;color:#111;border-radius:999px;padding:1px 8px;font-size:13px}
+nav.cats{display:flex;gap:8px;overflow-x:auto;padding:8px 0 12px;scrollbar-width:none}
+nav.cats a{flex:none;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;
+  color:var(--text);font-weight:700;font-size:15px;text-decoration:none;white-space:nowrap}
+nav.cats a.on{background:#111827;color:#fff;border-color:#111827}
+main{padding:18px 16px 10px}
+h1{font-size:30px;line-height:1.2;margin:0 0 6px} h2{font-size:24px;margin:28px 0 12px}
+.lead{color:var(--muted);font-size:18px;margin:0 0 14px}
+.hero{background:linear-gradient(135deg,#eff6ff,#eef2ff 55%,#fffbeb);border:1px solid #bfdbfe;
+  border-radius:18px;padding:20px;margin-bottom:16px}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-weight:700;
+  font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
+.tile{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1px solid var(--line);
+  border-radius:12px;text-decoration:none;color:var(--text);font-weight:800;font-size:15px}
+.tile:hover{border-color:var(--blue)}
+.tile .em{font-size:24px} .tile small{display:block;color:var(--muted);font-weight:600;font-size:13px}
+.premium{display:inline-block;background:#fbbf24;color:#000;font-weight:800;padding:10px 16px;
+  border-radius:10px;text-decoration:none;margin:4px 6px 10px 0}
+.join-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 0}\n.join-label{font-weight:800;font-size:14px;margin-right:2px}
+.join-btn{background:#0369a1;color:#fff;font-weight:800;font-size:14px;padding:6px 12px;border-radius:999px;
   text-decoration:none}
-.filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 16px}
-.filter-bar input{flex:1 1 240px;font-size:18px;padding:10px;border-radius:8px;
-  border:2px solid var(--border);background:var(--card);color:var(--text)}
-.pill{font-size:16px;font-weight:800;padding:9px 14px;border-radius:20px;cursor:pointer;
-  border:2px solid var(--border);background:var(--card);color:var(--text)}
-.pill.active{background:var(--accent);color:#000;border-color:var(--accent)}
-.filter-count{color:var(--muted);font-size:16px}
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);
+  border-radius:14px;padding:10px 12px;margin:0 0 14px}
+.pill{font-size:15px;font-weight:800;padding:8px 13px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--line);background:#fff;color:var(--text)}
+.pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.filter-bar select{font-size:15px;font-weight:700;padding:8px 10px;border-radius:10px;border:1px solid var(--line);
+  background:#f9fafb;color:var(--text)}
+.filter-count{margin-left:auto;color:var(--muted);font-weight:700;font-size:15px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.grid.list{grid-template-columns:1fr}
+.card{display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:14px;transition:box-shadow .15s,transform .15s}
+.card:hover{box-shadow:0 10px 24px -10px rgba(15,23,42,.25);transform:translateY(-1px)}
+.card.verified{border:2px solid var(--green)}
+.card-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}
+.chip{display:inline-block;padding:2px 9px;border-radius:7px;font-weight:800;font-size:13px;text-decoration:none}
+.chip.store{background:#111827;color:#fff}
+.chip.type{background:#f3f4f6;color:#111827;border:1px solid var(--line)}
+.chip.ok{background:var(--green-bg);color:var(--green)}
+.ago{margin-left:auto;color:var(--muted);font-weight:600}
+.title{font-size:17px;font-weight:800;line-height:1.3;margin:0}
+.value{font-size:22px;font-weight:900;color:var(--green)}
+.meta{color:var(--muted);font-size:14px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:auto;padding-top:8px;
+  border-top:1px solid #eef0f3}
+button.copy{min-height:40px;padding:0 12px;border-radius:10px;border:2px dashed var(--blue);background:#eff6ff;
+  color:var(--blue-d);font:800 15px ui-monospace,Consolas,"Courier New",monospace;cursor:pointer}
+button.save{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:#fff;
+  font-weight:800;font-size:14px;cursor:pointer;color:var(--text)}
+button.save.on{background:var(--amber-bg);border-color:#f59e0b;color:var(--amber)}
+.btn{margin-left:auto;display:inline-flex;align-items:center;min-height:40px;padding:0 16px;border-radius:10px;
+  background:var(--blue);color:#fff;font-weight:800;font-size:15px;text-decoration:none}
+.btn:hover{background:var(--blue-d)}
+.empty{color:var(--muted);font-size:18px;background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:24px;text-align:center}
+.drawer{position:fixed;inset:0;z-index:40;background:rgba(17,24,39,.55);display:flex;justify-content:flex-end}
+.drawer[hidden]{display:none}
+.drawer .panel{background:#fff;width:min(420px,100%);height:100%;overflow:auto;padding:18px}
+.drawer .item{border:1px solid var(--line);border-radius:12px;padding:10px;margin:10px 0}
+footer{background:#fff;border-top:1px solid var(--line);margin-top:30px;padding:18px 0;color:var(--muted);
+  font-size:15px}
+@media (max-width:640px){.row1{flex-wrap:wrap}.tile{padding:8px;font-size:14px}.tile .em{font-size:20px}.search{order:3;flex-basis:100%}.hbtn .t{display:none}
+  h1{font-size:25px}.filter-count{margin-left:0}}
 """
 
-COPY_JS = """<script>
-document.addEventListener('click',function(ev){var b=ev.target.closest('button.copy');if(!b)return;
-navigator.clipboard.writeText(b.dataset.code).then(function(){b.textContent='Copied!';
-setTimeout(function(){b.textContent='Copy'},1500)})});
-(function(){var bar=document.querySelector('.filter-bar');if(!bar)return;
-var box=bar.querySelector('input'),count=bar.querySelector('.filter-count'),mode='ALL';
-function run(){var q=box.value.trim().toLowerCase(),n=0;
-document.querySelectorAll('.grid .card').forEach(function(c){
-var ok=(mode==='ALL'||(mode==='VERIFIED'?c.dataset.verified==='1':c.dataset.cat===mode))
-&&(!q||c.dataset.text.indexOf(q)>-1);c.style.display=ok?'':'none';if(ok)n++});
-count.textContent=n+' shown'}
-box.addEventListener('input',run);
-bar.querySelectorAll('.pill').forEach(function(p){p.addEventListener('click',function(){
-bar.querySelectorAll('.pill').forEach(function(x){x.classList.remove('active')});
-p.classList.add('active');mode=p.dataset.filter;run()})})})();
+SITE_JS = """<script>
+(function(){
+var LS='dh_watch_v1',watch={};
+try{watch=JSON.parse(localStorage.getItem(LS)||'{}')||{}}catch(e){watch={}}
+function keep(){try{localStorage.setItem(LS,JSON.stringify(watch))}catch(e){}}
+var grid=document.querySelector('.grid'),cards=grid?[].slice.call(grid.querySelectorAll('.card')):[];
+var q=document.getElementById('q'),bar=document.querySelector('.filter-bar'),mode='ALL';
+var storeSel=bar&&bar.querySelector('[data-role=store]'),nicheSel=bar&&bar.querySelector('[data-role=niche]');
+var sortSel=bar&&bar.querySelector('[data-role=sort]'),count=bar&&bar.querySelector('.filter-count');
+if(storeSel){var st={};cards.forEach(function(c){st[c.dataset.store]=(st[c.dataset.store]||0)+1});
+ Object.keys(st).sort(function(a,b){return a.localeCompare(b)}).forEach(function(s){
+ var o=document.createElement('option');o.value=s;o.textContent=s+' ('+st[s]+')';storeSel.appendChild(o)})}
+function run(){var t=(q&&q.value||'').trim().toLowerCase(),n=0,s=storeSel&&storeSel.value,
+ ni=nicheSel&&nicheSel.value;
+ cards.forEach(function(c){var d=c.dataset,ok=
+  (mode==='ALL'||(mode==='VERIFIED'?d.verified==='1':mode==='CODES'?d.code!=='':
+   mode==='SAVED'?!!watch[d.hash]:d.cat===mode))&&(!s||d.store===s)&&
+  (!ni||(','+d.niches+',').indexOf(','+ni+',')>-1)&&(!t||(d.text||'').indexOf(t)>-1);
+  c.style.display=ok?'':'none';if(ok)n++});
+ if(count)count.textContent=n+' shown'}
+function sort(){if(!grid||!sortSel)return;var v=sortSel.value;cards.sort(function(a,b){
+ if(v==='store')return a.dataset.store.localeCompare(b.dataset.store);
+ if(v==='codes')return (b.dataset.code?1:0)-(a.dataset.code?1:0)||(b.dataset.new>a.dataset.new?1:-1);
+ return b.dataset.new>a.dataset.new?1:-1});cards.forEach(function(c){grid.appendChild(c)})}
+if(bar){bar.addEventListener('click',function(ev){var p=ev.target.closest('.pill');if(p){
+ bar.querySelectorAll('.pill').forEach(function(x){x.classList.remove('active')});p.classList.add('active');
+ mode=p.dataset.filter;run()}var v=ev.target.closest('[data-view]');if(v&&grid){
+ grid.classList.toggle('list',v.dataset.view==='list')}});
+ [storeSel,nicheSel].forEach(function(x){x&&x.addEventListener('change',run)});
+ sortSel&&sortSel.addEventListener('change',sort)}
+if(q){var p=new URLSearchParams(location.search).get('q');if(p){q.value=p}
+ q.addEventListener('input',run);q.addEventListener('keydown',function(ev){
+ if(ev.key==='Enter'&&!grid){location.href=q.dataset.home+'?q='+encodeURIComponent(q.value)}})}
+document.addEventListener('keydown',function(ev){var a=document.activeElement.tagName;
+ if(ev.key==='/'&&q&&a!=='INPUT'&&a!=='SELECT'){ev.preventDefault();q.focus()}
+ if(ev.key==='Escape')closeW()});
+var wl=document.getElementById('wl'),wlList=document.getElementById('wl-list'),wlN=document.getElementById('wl-n');
+function esc(s){var d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+function paint(){var k=Object.keys(watch);if(wlN)wlN.textContent=k.length;
+ cards.forEach(function(c){var b=c.querySelector('button.save'),on=!!watch[c.dataset.hash];
+  if(b){b.classList.toggle('on',on);b.textContent=on?'\\u2605 Saved':'\\u2606 Save'}});
+ if(wlList)wlList.innerHTML=k.length?k.map(function(h){var w=watch[h];return '<div class="item"><b>'+
+  esc(w.s)+'</b> \\u2013 '+esc(w.v)+'<br>'+esc(w.t)+(w.c?'<br>Code: <b>'+esc(w.c)+'</b>':'')+
+  '<br><a href="'+esc(w.l)+'" rel="nofollow sponsored" target="_blank">Get deal</a> \\u00b7 '+
+  '<a href="#" data-unsave="'+esc(h)+'">Remove</a></div>'}).join(''):
+  '<p class="meta">Nothing saved yet. Tap \\u2606 Save on any deal to keep it here (only on this device).</p>'}
+function closeW(){if(wl)wl.hidden=true}
+document.addEventListener('click',function(ev){
+ var c=ev.target.closest('button.copy');if(c){var lab=c.dataset.label||c.textContent;c.dataset.label=lab;
+  navigator.clipboard.writeText(c.dataset.code).then(function(){c.textContent='Copied \\u2713';
+  setTimeout(function(){c.textContent=lab},1500)});return}
+ var s=ev.target.closest('button.save');if(s){var cd=s.closest('.card').dataset;
+  if(watch[cd.hash])delete watch[cd.hash];else watch[cd.hash]={t:cd.title,s:cd.store,v:cd.value,c:cd.code,l:cd.link};
+  keep();paint();run();return}
+ var u=ev.target.closest('[data-unsave]');if(u){ev.preventDefault();delete watch[u.dataset.unsave];keep();paint();run();return}
+ if(ev.target.closest('#wl-open')){if(wl){paint();wl.hidden=false}return}
+ if(ev.target.closest('#wl-close')||ev.target===wl)closeW()});
+paint();run();
+})();
 </script>"""
 
 
@@ -106,48 +198,84 @@ def go_link(deal: dict) -> str:
     return deal.get("affiliate_url") or f"https://{deal['store_domain']}"
 
 
+def _found(iso: str | None) -> str:
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        return dt.strftime("%b %d").replace(" 0", " ")
+    except (ValueError, TypeError):
+        return ""
+
+
 def card(deal: dict) -> str:
-    label, _ = CATEGORY_STYLE.get(deal["category"], ("DEAL", 0))
-    verified = deal.get("is_verified")
+    """One deal card. Only real data: store, what, the discount, code, dates, link."""
+    label, _ = CATEGORY_STYLE.get(deal["category"], ("🏷️ DEAL", 0))
+    verified = bool(deal.get("is_verified"))
+    code = deal.get("promo_code") or ""
+    title = deal.get("summary") or f"{deal['store_name']} deal"
     search_text = " ".join(str(deal.get(k) or "") for k in
                            ("store_name", "store_domain", "summary", "discount_value",
                             "promo_code")).lower()
-    parts = [f'<div class="card{" verified" if verified else ""}" '
-             f'data-cat="{e(str(deal["category"]), quote=True)}" '
-             f'data-verified="{1 if verified else 0}" data-text="{e(search_text, quote=True)}">',
-             f'<div class="store">{e(label)} · <a href="{u('/store/' + slug(deal["store_domain"]) + '.html')}">'
-             f'{e(deal["store_name"])}</a></div>']
-    if deal.get("summary"):
-        parts.append(f'<div class="what">{e(deal["summary"])}</div>')
-    parts.append(f'<div class="value">{e(deal["discount_value"])}'
-                 + ('<span class="badge">✔ VERIFIED</span>' if verified else "") + "</div>")
-    if deal.get("promo_code"):
-        parts.append(f'<div class="code"><code>{e(deal["promo_code"])}</code>'
-                     f'<button class="copy" data-code="{e(deal["promo_code"], quote=True)}">'
-                     f"Copy</button></div>")
+    link = go_link(deal)
+    attrs = {"data-cat": str(deal["category"]), "data-verified": "1" if verified else "0",
+             "data-text": search_text, "data-store": deal["store_name"],
+             "data-niches": ",".join(deal.get("niches") or []), "data-code": code,
+             "data-hash": deal["deal_hash"][:16], "data-new": str(deal.get("created_at") or ""),
+             "data-title": title, "data-value": deal["discount_value"], "data-link": link}
+    attr = " ".join(f'{k}="{e(v, quote=True)}"' for k, v in attrs.items())
+    store_url = u("/store/" + slug(deal["store_domain"]) + ".html")
+    parts = [f'<article class="card{" verified" if verified else ""}" {attr}>',
+             '<div class="card-top">',
+             f'<a class="chip store" href="{store_url}">{e(deal["store_name"])}</a>',
+             f'<span class="chip type">{e(label.title())}</span>',
+             '<span class="chip ok">✔ Verified at checkout</span>' if verified else "",
+             f'<span class="ago">Found {e(_found(deal.get("created_at")))}</span></div>',
+             f'<h3 class="title">{e(title)}</h3>',
+             f'<div class="value">{e(deal["discount_value"])}</div>']
     if deal.get("expiration_date"):
         parts.append(f'<div class="meta">Ends {e(str(deal["expiration_date"]))}</div>')
-    parts.append(f'<a class="btn" href="{e(go_link(deal), quote=True)}" rel="nofollow sponsored">'
-                 f"Get this deal →</a></div>")
+    parts.append('<div class="actions">')
+    if code:
+        parts.append(f'<button class="copy" data-code="{e(code, quote=True)}" '
+                     f'title="Copy code">{e(code)} ⧉</button>')
+    parts.append('<button class="save" type="button">☆ Save</button>'
+                 f'<a class="btn" href="{e(link, quote=True)}" rel="nofollow sponsored" '
+                 'target="_blank">Get deal ↗</a></div></article>')
     return "".join(parts)
 
 
-def page(title: str, body: str, description: str = "", extra_head: str = "") -> str:
+def page(title: str, body: str, description: str = "", extra_head: str = "",
+         active: str = "", search: bool = True) -> str:
     niches = load_niches()
-    nav = "".join(f'<a href="{u("/" + n.id + "/")}">{e(n.emoji)} {e(n.name)}</a>' for n in niches)
+    nav = "".join(f'<a href="{u("/" + n.id + "/")}"{" class=on" if n.id == active else ""}>'
+                  f'{e(n.emoji)} {e(n.name.replace(" Deals", ""))}</a>' for n in niches)
+    home_on = ' class=on' if active == "home" else ""
+    share = ""
+    if settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
+        share = (f'<a class="hbtn green" href="{e(settings.discord_invite_url, quote=True)}" '
+                 'target="_blank" rel="noopener">＋<span class="t"> Share a deal</span></a>')
+    search_box = (f'<label class="search">🔍<input id="q" type="search" data-home="{u("/")}" '
+                  'placeholder="Search stores, items or codes (press /)" '
+                  'aria-label="Search deals"></label>') if search else '<div style="flex:1"></div>'
     year = datetime.now().year
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(description or title, quote=True)}">{extra_head}
 <link rel="alternate" type="application/rss+xml" title="{e(settings.site_name)} RSS" href="{u('/rss.xml')}">
 <style>{CSS}</style>{analytics_html()}</head><body>
-<header><div class="wrap"><a class="logo" href="{u("/")}">🏷️ {e(settings.site_name)}</a>
-<nav>{nav}</nav></div></header>
+<header class="top"><div class="wrap"><div class="row1">
+<a class="logo" href="{u("/")}"><span class="mark">🏷️</span><span>{e(settings.site_name)}</span></a>
+{search_box}{share}
+<button class="hbtn dark" id="wl-open" type="button">☆<span class="t"> Watchlist</span> <span class="n" id="wl-n">0</span></button>
+</div><nav class="cats" aria-label="Categories"><a href="{u("/")}"{home_on}>🏠 All deals</a>{nav}</nav></div></header>
 <main class="wrap">{body}</main>
+<div class="drawer" id="wl" hidden><div class="panel"><div style="display:flex;justify-content:space-between;align-items:center">
+<h2 style="margin:0">☆ Watchlist</h2><button class="save" id="wl-close" type="button">Close ✕</button></div>
+<p class="meta">Saved on this device only. Prices and codes can change, so check before you buy.</p>
+<div id="wl-list"></div></div></div>
 <footer><div class="wrap">{e(DISCLOSURE)} ·
 <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
-</div></footer>{COPY_JS}</body></html>"""
+</div></footer>{SITE_JS}</body></html>"""
 
 
 def analytics_html() -> str:
@@ -167,33 +295,49 @@ def analytics_html() -> str:
 def join_banner(niches: list) -> str:
     """Join buttons for PUBLIC channels only (@name). Webhook links are never shown."""
     links = []
+    single = len(niches) == 1
     for n in niches:
         tg = n.telegram_chat("free")
         if tg.startswith("@"):
+            text = (f"Join {e(n.emoji)} {e(n.name)} on Telegram" if single
+                    else f"{e(n.emoji)} {e(n.name.replace(' Deals', ''))}")
             links.append(f'<a class="join-btn" href="https://t.me/{e(tg[1:], quote=True)}" '
-                         f'target="_blank" rel="noopener">Join {e(n.emoji)} {e(n.name)} '
-                         "on Telegram</a>")
+                         f'target="_blank" rel="noopener">{text}</a>')
     if settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
         links.append(f'<a class="join-btn" href="{e(settings.discord_invite_url, quote=True)}" '
                      'target="_blank" rel="noopener">Join our Discord</a>')
-    return '<div class="join-bar">' + "".join(links) + "</div>" if links else ""
+    if not links:
+        return ""
+    label = "" if single else '<span class="join-label">Free alerts on Telegram:</span>'
+    return '<div class="join-bar">' + label + "".join(links) + "</div>"
 
 
-def filter_bar(count: int) -> str:
+def filter_bar(count: int, niches: list | None = None) -> str:
+    """Type tabs, store/category pickers, sort and list/grid switch. Works on the cards below."""
     if count < 2:
         return ""
-    pills = [("ALL", "All"), ("PRICE_ERROR", "Price errors"), ("COUPON", "Coupons"),
-             ("FREEBIE", "Freebies"), ("CASHBACK_BONUS", "Cash bonuses"), ("VERIFIED", "Verified")]
+    pills = [("ALL", "All"), ("CODES", "Promo codes"), ("FREEBIE", "Freebies"),
+             ("PRICE_ERROR", "Price errors"), ("CASHBACK_BONUS", "Cash bonuses"),
+             ("VERIFIED", "Verified"), ("SAVED", "☆ Saved")]
     buttons = "".join(f'<button type="button" class="pill{" active" if k == "ALL" else ""}" '
                       f'data-filter="{k}">{label}</button>' for k, label in pills)
-    return ('<div class="filter-bar"><input type="search" placeholder="Search store, item or code"'
-            f' aria-label="Search deals">{buttons}<span class="filter-count">{count} shown</span>'
-            "</div>")
+    niche_sel = ""
+    if niches:
+        niche_sel = ('<select data-role="niche" aria-label="Category"><option value="">All categories</option>'
+                     + "".join(f'<option value="{e(n.id, quote=True)}">{e(n.emoji)} {e(n.name)}</option>'
+                               for n in niches) + "</select>")
+    return ('<div class="filter-bar">' + buttons + niche_sel
+            + '<select data-role="store" aria-label="Store"><option value="">All stores</option></select>'
+            '<select data-role="sort" aria-label="Sort"><option value="new">Newest first</option>'
+            '<option value="codes">Promo codes first</option><option value="store">Store A–Z</option></select>'
+            '<button type="button" class="pill" data-view="grid" title="Grid view">▦</button>'
+            '<button type="button" class="pill" data-view="list" title="List view">☰</button>'
+            f'<span class="filter-count">{count} shown</span></div>')
 
 
 def deal_grid(deals: list[dict]) -> str:
     if not deals:
-        return '<p class="empty">No active deals right now. New ones are added every hour.</p>'
+        return '<p class="empty">No active deals right now. New ones are added every 30 minutes.</p>'
     return '<div class="grid">' + "".join(card(d) for d in deals) + "</div>"
 
 
@@ -202,6 +346,14 @@ def premium_button(niche) -> str:
         return ""
     return (f'<a class="premium" href="{e(niche.premium_url, quote=True)}">'
             f"⭐ Get {e(niche.name)} instantly + price errors</a>")
+
+
+def _ts(iso) -> float:
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).timestamp()
+    except (ValueError, TypeError):
+        return 0.0
 
 
 def _visible(deals: list[dict]) -> list[dict]:
@@ -317,32 +469,53 @@ async def build_site(db, out_dir: str | None = None) -> int:
     written = 0
     urls = ["/"]
 
-    # Home
-    sections = []
-    for n in niches:
-        deals = sorted(_visible(await db.niche_deals(n.id, hours=24 * 3, limit=200)),
-                       key=value_score, reverse=True)[:9]
-        sections.append(f'<h2>{e(n.emoji)} <a href="{u("/" + n.id + "/")}">{e(n.name)}</a></h2>'
-                        f"{premium_button(n)}{deal_grid(deals)}")
-    body = (f"<h1>Today's best deals</h1><p class='lead'>Coupon codes, price drops and freebies, "
-            f"checked by machine and updated every hour.</p>" + join_banner(niches)
-            + "".join(sections))
-    _write(root, "index.html", page(f"{settings.site_name}: today's best deals", body))
-    written += 1
-
-    # Niche pages + collect stores
+    # Niche deals (also feed the homepage and store pages)
     stores: dict[str, list[dict]] = {}
+    by_niche: dict[str, list[dict]] = {}
     for n in niches:
         deals = _visible(await db.niche_deals(n.id, hours=24 * 30, limit=500))
+        by_niche[n.id] = deals
         for d in deals:
             stores.setdefault(d["store_domain"], []).append(d)
-        recent = sorted(deals, key=lambda d: d["created_at"], reverse=True)[:120]
+
+    # Home: every live deal from the last week, newest first, filterable in the browser
+    recent_all: dict[str, dict] = {}
+    for deals in by_niche.values():
+        for d in deals:
+            recent_all.setdefault(d["deal_hash"], d)
+    week_ago = (datetime.now(timezone.utc).timestamp() - 7 * 86400)
+    home_deals = sorted((d for d in recent_all.values()
+                         if _ts(d.get("created_at")) >= week_ago),
+                        key=lambda d: str(d.get("created_at") or ""), reverse=True)[:240]
+    n_codes = sum(1 for d in home_deals if d.get("promo_code"))
+    n_stores = len({d["store_domain"] for d in home_deals})
+    tiles = "".join(
+        f'<a class="tile" href="{u("/" + n.id + "/")}"><span class="em">{e(n.emoji)}</span>'
+        f'<span>{e(n.name.replace(" Deals", ""))}<small>{len(by_niche.get(n.id, []))} deals</small>'
+        "</span></a>" for n in niches)
+    premiums = "".join(premium_button(n) for n in niches)
+    body = (f'<section class="hero"><h1>Today\'s best deals</h1>'
+            f"<p class='lead'>Coupon codes, freebies and price drops, found automatically and "
+            f"updated every 30 minutes.</p>"
+            f'<div class="stats"><span class="stat">{len(home_deals)} live deals</span>'
+            f'<span class="stat">{n_codes} promo codes</span><span class="stat">{n_stores} stores</span></div>'
+            f'{join_banner(niches)}<div class="tiles">{tiles}</div></section>{premiums}'
+            f"{filter_bar(len(home_deals), niches)}{deal_grid(home_deals)}")
+    _write(root, "index.html", page(f"{settings.site_name}: today's best deals, coupon codes & freebies",
+                                    body, "Live coupon codes, freebies and price drops for farm, "
+                                    "motorcycle, tools, auto, electronics and more. Updated every "
+                                    "30 minutes.", active="home"))
+    written += 1
+
+    # Niche pages
+    for n in niches:
+        recent = sorted(by_niche[n.id], key=lambda d: d["created_at"], reverse=True)[:120]
         body = (f"<h1>{e(n.emoji)} {e(n.name)}</h1><p class='lead'>Updated "
-                f"{datetime.now().strftime('%B %d, %Y')}.</p>{join_banner([n])}"
-                f"{premium_button(n)}{filter_bar(len(recent))}{deal_grid(recent)}")
+                f"{datetime.now().strftime('%B %d, %Y')}. {len(recent)} live deals.</p>"
+                f"{join_banner([n])}{premium_button(n)}{filter_bar(len(recent))}{deal_grid(recent)}")
         _write(root, f"{n.id}/index.html", page(f"{n.name} | {settings.site_name}", body,
                                                 f"Latest {n.name.lower()}: coupon codes, "
-                                                f"sales and freebies."))
+                                                f"sales and freebies.", active=n.id))
         urls.append(f"/{n.id}/")
         written += 1
 
@@ -350,7 +523,8 @@ async def build_site(db, out_dir: str | None = None) -> int:
     for domain, deals in stores.items():
         name = deals[0]["store_name"]
         deals = sorted({d["deal_hash"]: d for d in deals}.values(),
-                       key=lambda d: (not d.get("is_verified"), d["created_at"]))
+                       key=lambda d: str(d["created_at"]), reverse=True)
+        deals.sort(key=lambda d: not d.get("is_verified"))      # verified codes first
         month = datetime.now().strftime("%B %Y")
         body = (f"<h1>{e(name)} coupon codes &amp; deals</h1>"
                 f"<p class='lead'>Active {e(name)} promo codes and sales for {month}.</p>"
@@ -379,7 +553,8 @@ async def build_site(db, out_dir: str | None = None) -> int:
         + "When you click a deal we count the click (which deal, which page or channel, and the "
         "time) to know which deals are popular. We don't store your IP address with that "
         "count.</p><p>Our server keeps standard technical logs for security, deleted "
-        "regularly.</p><p>When you leave for a store through an affiliate link, that store "
+        "regularly.</p><p>Your Watchlist is saved only in your own browser on your own "
+        "device. We never see it.</p><p>When you leave for a store through an affiliate link, that store "
         "and its affiliate network may set their own cookies under their own privacy "
         "policies.</p>"
         "<h2>Browser extension</h2><p>Our Deal Hunter browser extension looks at the web "
