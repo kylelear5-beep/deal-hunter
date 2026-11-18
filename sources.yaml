@@ -3,27 +3,46 @@
 
 # Priority 1: RSS feeds (cheap, rarely blocked)
 rss:
-  - https://slickdeals.net/newsearch.php?mode=frontpage&searcharea=deals&searchin=first&rss=1
-  # Niche keyword searches (farm / ranch / outdoor)
+  # Niche keyword searches first, so the AI reads them before general deals.
+  # Farm / ranch / tools / outdoor
   - https://slickdeals.net/newsearch.php?q=tractor+supply&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=rural+king&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=harbor+freight&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=northern+tool&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=milwaukee&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=carhartt&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=chainsaw&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=generator&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=chicken+coop&searcharea=deals&searchin=first&rss=1
-  # Niche keyword searches (motorcycle gear)
+  # Motorcycle gear
   - https://slickdeals.net/newsearch.php?q=motorcycle&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=revzilla&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=cycle+gear&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=motorcycle+helmet&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=shoei&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=alpinestars&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=sena&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=cardo&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=motosport&searcharea=deals&searchin=first&rss=1
+  # General front page last
+  - https://slickdeals.net/newsearch.php?mode=frontpage&searcharea=deals&searchin=first&rss=1
 
 # Priority 1: Reddit (uses PRAW if REDDIT_CLIENT_ID is set in .env, otherwise public .json)
+# NOTE: Reddit blocks GitHub's servers without API keys (REDDIT_CLIENT_ID / SECRET).
 reddit:
-  limit: 25          # newest posts per subreddit per run
+  limit: 15          # newest posts per subreddit per run
   subreddits:
     - deals
-    - frugal
-    - churning
     - freebies
+    # Moto
+    - motorcycledeals
+    - motorcyclegear
+    # Farm / tools / outdoor
+    - ToolDealsDaily
+    - harborfreight
+    - MilwaukeeTool
+    - outdoordeals
+    - HuntingGearDeals
 
 # Priority 2: web pages. mode = auto | static | dynamic
 #   static  -> HTTPX + BeautifulSoup only (fast)
