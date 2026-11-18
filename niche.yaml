@@ -110,3 +110,171 @@ niches:
       - adventure bike
       - harley
       - goldwing
+
+  - id: tools
+    name: Tools & Garage Deals
+    emoji: "🛠️"
+    stores:
+      - homedepot.com
+      - lowes.com
+      - acehardware.com
+      - acmetools.com
+      - toolnut.com
+      - cpooutlets.com
+      - harborfreight.com
+      - northerntool.com
+    keywords:
+      - milwaukee
+      - dewalt
+      - makita
+      - ryobi
+      - bosch
+      - ridgid
+      - kobalt
+      - craftsman
+      - knipex
+      - klein tools
+      - impact driver
+      - hammer drill
+      - drill driver
+      - drill bit
+      - socket set
+      - torque wrench
+      - wrench
+      - ratchet
+      - tool box
+      - tool chest
+      - air compressor
+      - table saw
+      - miter saw
+      - circular saw
+      - angle grinder
+      - oscillating
+      - shop vac
+      - work light
+      - welder
+      - workbench
+
+  - id: auto
+    name: Auto & Truck Deals
+    emoji: "🚙"
+    stores:
+      - autozone.com
+      - advanceautoparts.com
+      - oreillyauto.com
+      - rockauto.com
+      - tirerack.com
+      - chemicalguys.com
+      - griotsgarage.com
+    keywords:
+      - dash cam
+      - dashcam
+      - jump starter
+      - battery charger
+      - obd2
+      - floor jack
+      - jack stand
+      - car cover
+      - tonneau
+      - roof rack
+      - trailer hitch
+      - winch
+      - synthetic oil
+      - motor oil
+      - wiper blades
+      - car wash
+      - detailing
+      - tire inflator
+
+  - id: electronics
+    name: Electronics & Tech Deals
+    emoji: "💻"
+    stores:
+      - bestbuy.com
+      - newegg.com
+      - bhphotovideo.com
+      - microcenter.com
+      - apple.com
+      - samsung.com
+      - anker.com
+      - lenovo.com
+      - dell.com
+      - hp.com
+      - sony.com
+      - lg.com
+      - bose.com
+    keywords:
+      - laptop
+      - desktop
+      - monitor
+      - ssd
+      - nvme
+      - microsd
+      - sd card
+      - usb-c
+      - gan charger
+      - power bank
+      - headphones
+      - earbuds
+      - airpods
+      - speaker
+      - soundbar
+      - oled
+      - 4k tv
+      - smart tv
+      - router
+      - mesh wifi
+      - mechanical keyboard
+      - gaming mouse
+      - webcam
+      - tablet
+      - ipad
+      - kindle
+      - smartwatch
+      - garmin
+      - graphics card
+      - gpu
+      - rtx
+      - ryzen
+      - nas
+      - ups battery
+
+  - id: other
+    name: Everyday & Home Deals
+    emoji: "🛒"
+    fallback: true
+    stores:
+      - walmart.com
+      - target.com
+      - costco.com
+      - samsclub.com
+      - kohls.com
+      - macys.com
+      - wayfair.com
+      - ikea.com
+      - petsmart.com
+      - petco.com
+      - chewy.com
+    keywords:
+      - robot vacuum
+      - vacuum
+      - air fryer
+      - espresso
+      - coffee maker
+      - blender
+      - instant pot
+      - cookware
+      - luggage
+      - suitcase
+      - mattress
+      - bedding
+      - laundry
+      - detergent
+      - dog food
+      - cat litter
+      - camping
+      - cooler
+      - yeti
+      - rtic
+      - backpack
+      - flashlight

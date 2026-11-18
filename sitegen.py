@@ -32,7 +32,8 @@ a{color:var(--accent)}
 header{border-bottom:2px solid var(--border);padding:18px 0}
 header .wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
 .logo{font-size:26px;font-weight:800;color:var(--text);text-decoration:none}
-nav a{margin-right:16px;font-weight:700;text-decoration:none;font-size:18px}
+nav{display:flex;flex-wrap:wrap;gap:10px 16px}
+nav a{font-weight:700;text-decoration:none;font-size:17px}
 h1{font-size:32px;margin:26px 0 6px} h2{font-size:26px;margin:34px 0 12px}
 .lead{color:var(--muted);font-size:19px;margin:0 0 18px}
 .premium{display:inline-block;background:var(--accent);color:#000;font-weight:800;
