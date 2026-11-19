@@ -193,12 +193,19 @@ def looks_like_deal(text: str) -> bool:
     return bool(DEAL_HINTS.search(text or ""))
 
 
+def is_shortened_text(url: str) -> bool:
+    """A link that was cut short for display ('...' in the middle) does not open anything."""
+    return "..." in url or "\u2026" in url
+
+
 def _clean_merchant_url(url: Optional[str], store_domain: str) -> Optional[str]:
     if not url:
         return None
     url = url.strip()
     if not url.lower().startswith(("http://", "https://")):
         return None
+    if is_shortened_text(url):
+        return None  # Slickdeals shows long links as "walmart.com/ip/JBL-Ci...hbdg=L1300"
     host = urlparse(url).netloc.split(":")[0].lower()
     if host in UNTAGGABLE_HOSTS:
         return url  # shortener that points at the merchant; keep as-is

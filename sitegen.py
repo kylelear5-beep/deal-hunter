@@ -261,6 +261,10 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
     nav += (f'<a href="{u("/open-box/")}"{" class=on" if active == "open-box" else ""}>'
             '📦 Open Box</a>')
     home_on = ' class=on' if active == "home" else ""
+    pick = ""
+    if settings.sovrn_pick_url.startswith("https://sovrn.co/"):
+        pick = (f' · <a href="{e(settings.sovrn_pick_url, quote=True)}" rel="sponsored nofollow" '
+                'target="_blank">Today\'s pick: DeWalt drills at Walmart</a>')
     share = ""
     if settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
         share = (f'<a class="hbtn green" href="{e(settings.discord_invite_url, quote=True)}" '
@@ -285,7 +289,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 <p class="meta">Saved on this device only. Prices and codes can change, so check before you buy.</p>
 <div id="wl-list"></div></div></div>
 <footer><div class="wrap">{e(DISCLOSURE)} ·
-<a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>
+<a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>{pick}
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
 </div></footer>{SITE_JS}</body></html>"""
 

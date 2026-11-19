@@ -290,7 +290,14 @@ async def recheck_saved_deals(db) -> dict:
     from datetime import date, timedelta
     from affiliate import build_affiliate_url
     from parser import VAGUE_DISCOUNTS, looks_like_price_error
-    fixed = {"price_errors": 0, "vague": 0, "ebay": 0, "open_box": 0}
+    fixed = {"price_errors": 0, "vague": 0, "ebay": 0, "open_box": 0, "broken_links": 0}
+    cur = await db.conn.execute(
+        "SELECT deal_hash FROM deals WHERE merchant_url LIKE '%...%' OR merchant_url LIKE ?",
+        ("%\u2026%",))
+    for (h,) in await cur.fetchall():
+        await db.conn.execute(
+            "UPDATE deals SET merchant_url = NULL, affiliate_url = '' WHERE deal_hash = ?", (h,))
+        fixed["broken_links"] += 1
     from parser import detect_condition
     cur = await db.conn.execute(
         "SELECT deal_hash, summary, discount_value FROM deals WHERE condition = ''")

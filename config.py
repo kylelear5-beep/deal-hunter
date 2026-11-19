@@ -72,6 +72,8 @@ class Settings:
     openai_model: str = _str("OPENAI_MODEL", "gpt-4o-mini")
     llm_max_rpm: int = _int("LLM_MAX_RPM", 10)
     llm_max_chars: int = _int("LLM_MAX_CHARS", 12000)
+    # Sovrn Commerce link shown in the site footer (needed for Sovrn's site review)
+    sovrn_pick_url: str = _str("SOVRN_PICK_URL", "https://sovrn.co/aur26qj")
     # Most posts the AI reads in one run; the rest wait for the next run (free-tier friendly)
     max_ai_items_per_run: int = _int("MAX_AI_ITEMS_PER_RUN", 10)
 

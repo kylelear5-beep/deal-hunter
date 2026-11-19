@@ -552,13 +552,13 @@ async def test_recheck_saved_deals_and_sale_labels(db, channels, monkeypatch):
     await db.insert_deal(ebay)
     monkeypatch.setattr(settings, "ebay_campid", "5339253664")
     fixed = await main.recheck_saved_deals(db)
-    assert fixed == {"price_errors": 1, "vague": 1, "ebay": 1, "open_box": 0}
+    assert fixed == {"price_errors": 1, "vague": 1, "ebay": 1, "open_box": 0, "broken_links": 0}
     rows, _ = await db.query_deals(verified_only=False, limit=50)
     by = {r["summary"]: r for r in rows}
     assert by["27 gallon tote"]["category"] == "COUPON" and by["Track saw"]["category"] == "PRICE_ERROR"
     assert "Utility knife" not in by                                   # retired
     assert "campid=5339253664" in by["Shoei helmet"]["affiliate_url"]
-    assert await main.recheck_saved_deals(db) == {"price_errors": 0, "vague": 0, "ebay": 0, "open_box": 0}  # idempotent
+    assert await main.recheck_saved_deals(db) == {"price_errors": 0, "vague": 0, "ebay": 0, "open_box": 0, "broken_links": 0}  # idempotent
     from alerts import deal_label
     assert deal_label(by["27 gallon tote"])[0] == "💲 SALE"
     assert deal_label({"category": "COUPON", "promo_code": "X"})[0] == "🏷️ COUPON CODE"

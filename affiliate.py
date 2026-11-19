@@ -95,6 +95,8 @@ def _apply_template(template: str, url: str, subid: str, host: str) -> str:
 def has_product_link(deal: dict) -> bool:
     """True when the deal points at an actual product/offer page, not just the store's homepage."""
     url = deal.get("merchant_url") or ""
+    if "..." in url or "\u2026" in url:
+        return False             # shortened display text, not a real link
     return bool(url) and urlparse(url if "://" in url else "https://" + url).path.strip("/") != ""
 
 

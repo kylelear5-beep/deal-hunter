@@ -43,3 +43,28 @@ async def test_saved_and_site(db, tmp_path):
     from sitegen import filter_bar
     assert 'data-filter="OPENBOX"' in filter_bar(5)
     assert "/open-box/" in home
+
+
+def test_shortened_links_rejected_and_footer_pick(tmp_path):
+    from affiliate import has_product_link
+    from parser import _clean_merchant_url
+    assert _clean_merchant_url("https://www.walmart.com/ip/JBL-Ci...hbdg=L1300", "walmart.com") is None
+    assert _clean_merchant_url("https://www.walmart.com/ip/12345", "walmart.com")
+    assert not has_product_link({"merchant_url": "https://www.bestbuy.com/product/e...JJ858RS4VC"})
+    from sitegen import page
+    html = page("t", "<p>x</p>")
+    assert 'href="https://sovrn.co/aur26qj"' in html and 'rel="sponsored nofollow"' in html
+
+
+async def test_broken_links_cleaned(db):
+    from datetime import datetime, timezone
+    await db.insert_deal(Deal(deal_hash="b" * 64, store_name="Walmart", store_domain="walmart.com",
+                              discount_value="$50 off", category=Category.COUPON,
+                              source_url="https://slickdeals.net/f/3", created_at=datetime.now(timezone.utc),
+                              merchant_url="https://www.walmart.com/ip/JBL-Ci...hbdg=L1300",
+                              affiliate_url="https://www.walmart.com/ip/JBL-Ci...hbdg=L1300",
+                              summary="JBL soundbar"))
+    fixed = await main.recheck_saved_deals(db)
+    assert fixed["broken_links"] == 1
+    d = await db.get_deal("b" * 64)
+    assert d["merchant_url"] is None and d["affiliate_url"] == ""
