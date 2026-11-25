@@ -79,6 +79,20 @@ h1{font-size:30px;line-height:1.2;margin:0 0 6px} h2{font-size:24px;margin:28px 
 .filter-bar select{font-size:15px;font-weight:700;padding:8px 10px;border-radius:10px;border:1px solid var(--line);
   background:#f9fafb;color:var(--text)}
 .filter-count{margin-left:auto;color:var(--muted);font-weight:700;font-size:15px}
+.signup{background:#fff;border:2px solid var(--blue);border-radius:16px;padding:18px 20px;margin:18px 0}
+.signup h2{margin:0 0 4px;font-size:24px}.signup .q{font-weight:800;font-size:17px;margin:14px 0 6px}
+.signup label{display:inline-flex;align-items:center;gap:8px;font-size:17px;min-height:40px;margin-right:16px}
+.signup input[type=checkbox],.signup input[type=radio]{width:22px;height:22px}
+.signup input[type=email]{width:100%;font-size:18px;padding:10px 12px;border:2px solid var(--line);border-radius:10px}
+.signup .go{width:100%;min-height:50px;margin-top:16px;border:0;border-radius:12px;background:var(--blue);
+  color:#fff;font-size:19px;font-weight:800;cursor:pointer}
+.signup .done{border:3px solid #047857;border-radius:12px;padding:14px 16px;font-size:18px}
+.signup .err{color:#b91c1c;font-weight:800}.signup .hp{position:absolute;left:-9999px}
+.mine{margin:18px 0}.mine h2{margin:0 0 6px}.mine .mine-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.mine .perks{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0}
+.mine .perk{background:#fff;border:2px solid #f59e0b;border-radius:12px;padding:10px 14px;font-weight:800;
+  text-decoration:none;color:var(--text)}
+.mygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .grid.list{grid-template-columns:1fr}
 .card{display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);
@@ -202,6 +216,97 @@ def u(path: str) -> str:
     return base_path() + path
 
 
+CATS_JS = {"farm": "Farm and ranch", "tools": "Tools", "moto": "Motorcycle", "auto": "Auto and truck",
+           "electronics": "Tech", "astro": "Telescope and space", "other": "Home"}
+
+PICKS_JS = """<script>
+(function(){
+var K='dh_picks_v1',p=null;
+try{p=JSON.parse(localStorage.getItem(K)||'null')}catch(e){}
+var qs=new URLSearchParams(location.search);
+if(qs.get('for')){p=p||{};var add=qs.get('for').split(',');p.cats=(p.cats||[]).concat(add)
+ .filter(function(x,i,a){return x&&a.indexOf(x)===i});
+ if(qs.get('prime'))p.prime=qs.get('prime');if(qs.get('audio'))p.audio=qs.get('audio');
+ try{localStorage.setItem(K,JSON.stringify(p))}catch(e){}}
+var box=document.getElementById('signup'),mine=document.getElementById('mine');
+function showMine(){if(!mine||!p||!p.cats||!p.cats.length)return;
+ var all=p.cats.indexOf('all')>-1,g=document.querySelector('.grid'),mg=mine.querySelector('.mygrid');
+ if(!g||!mg)return;mg.innerHTML='';
+ var cs=[].slice.call(g.querySelectorAll('.card')).filter(function(c){return all||
+  c.dataset.niches.split(',').some(function(n){return p.cats.indexOf(n)>-1})});
+ cs.sort(function(a,b){return parseFloat(b.dataset.pay||0)-parseFloat(a.dataset.pay||0)});
+ cs.slice(0,9).forEach(function(c){var x=c.cloneNode(true);x.removeAttribute('id');mg.appendChild(x)});
+ mine.querySelectorAll('[data-show]').forEach(function(a){var w=a.dataset.show;
+  a.hidden=!((w==='noprime'&&p.prime==='no')||(w==='prime'&&p.prime==='yes')||(w==='audio'&&p.audio==='yes'))});
+ mine.hidden=!cs.length;if(box&&cs.length)box.hidden=true}
+showMine();
+document.addEventListener('click',function(ev){if(ev.target.closest('[data-repick]')&&box){
+ ev.preventDefault();box.hidden=false;box.scrollIntoView({block:'start'})}});
+if(!box)return;var f=box.querySelector('form');
+f&&f.addEventListener('submit',function(ev){ev.preventDefault();
+ var err=box.querySelector('.err'),em=f.email.value.trim();
+ if(!/^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$/i.test(em)){err.textContent='Enter your email first.';f.email.focus();return}
+ err.textContent='';
+ var cats=[].slice.call(f.querySelectorAll('[name=cat]:checked')).map(function(x){return x.value});
+ var d={email:em,cats:cats.join(','),prime:(f.querySelector('[name=prime]:checked')||{}).value||'',
+  audio:(f.querySelector('[name=audio]:checked')||{}).value||'',
+  freq:(f.querySelector('[name=freq]:checked')||{}).value||'daily',website:f.website.value};
+ p={cats:cats.length?cats:['all'],prime:d.prime,audio:d.audio};
+ try{localStorage.setItem(K,JSON.stringify(p))}catch(e){}
+ var url=box.dataset.url,btn=f.querySelector('.go');btn.disabled=true;btn.textContent='Signing you up\\u2026';
+ function done(){f.hidden=true;box.querySelector('.done').hidden=false;showMine();if(mine&&!mine.hidden)box.hidden=false}
+ if(!url){done();return}
+ fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(d)})
+  .then(done,function(){btn.disabled=false;btn.textContent='Send me deals';
+   err.textContent='That did not go through. Check your connection and try again.'})});
+})();
+</script>"""
+
+
+def signup_box() -> str:
+    """Email sign-up: 5 quick questions. Sent to the Sheet web app, which adds the person to Brevo."""
+    cats = "".join(f'<label><input type="checkbox" name="cat" value="{k}"> {e(v)}</label>'
+                   for k, v in CATS_JS.items())
+    def yn(name):
+        return (f'<label><input type="radio" name="{name}" value="yes"> Yes</label>'
+                f'<label><input type="radio" name="{name}" value="no"> No</label>')
+    return (f'<section class="signup" id="signup" data-url="{e(settings.signup_url, quote=True)}">'
+            '<h2>📬 Get deals in your inbox</h2>'
+            '<p class="meta" style="font-size:17px">Free. Only the deals you care about. 5 quick taps.</p>'
+            '<form novalidate><div class="q">1. Your email</div>'
+            '<input type="email" name="email" autocomplete="email" placeholder="you@email.com" '
+            'aria-label="Your email">'
+            '<input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">'
+            f'<div class="q">2. What deals do you want?</div><div>{cats}'
+            '<label><input type="checkbox" name="cat" value="all"> Everything</label></div>'
+            f'<div class="q">3. Do you have Amazon Prime?</div><div>{yn("prime")}</div>'
+            f'<div class="q">4. Do you listen to audiobooks?</div><div>{yn("audio")}</div>'
+            '<div class="q">5. How often?</div><div>'
+            '<label><input type="radio" name="freq" value="daily" checked> Every day</label>'
+            '<label><input type="radio" name="freq" value="weekly"> Once a week</label></div>'
+            '<p class="err" role="alert"></p>'
+            '<button class="go" type="submit">Send me deals</button>'
+            '<p class="meta" style="text-align:center">No spam from us. Unsubscribe with one tap.</p></form>'
+            '<div class="done" hidden><p style="margin:0 0 8px;font-size:22px;font-weight:800">✅ You\'re in!</p>'
+            f'<p style="margin:0 0 8px">Your first deals arrive at {settings.email_hour} AM.</p>'
+            '<p style="margin:0">🔍 Don\'t see us? Check your spam folder. Our deals are so good, '
+            'your inbox thinks they\'re too good to be true. Tap "Not spam" and we\'ll behave.</p></div>'
+            '</section>')
+
+
+def my_deals_section() -> str:
+    """'Your deals': filled in the browser from the visitor's saved picks. Best-paying first."""
+    from amazon_perks import perk_links
+    want = {"Try Amazon Prime free": "noprime", "Prime Exclusive deals": "prime",
+            "Try Audible free": "audio"}
+    perks = "".join(f'<a class="perk" data-show="{want[t]}" hidden href="{e(link, quote=True)}" '
+                    f'rel="sponsored nofollow" target="_blank">{e(em)} {e(t)} ↗</a>'
+                    for em, t, _, link in perk_links() if t in want)
+    return ('<section class="mine" id="mine" hidden><div class="mine-top"><h2>⭐ Your deals</h2>'
+            '<a href="#signup" data-repick class="meta">Change my picks</a></div>'
+            f'<div class="perks">{perks}</div><div class="mygrid"></div></section>')
+
+
 def go_link(deal: dict) -> str:
     if settings.click_tracking:
         return u(f"/go/{deal['deal_hash'][:12]}?c=web")
@@ -214,6 +319,15 @@ def _found(iso: str | None) -> str:
         return dt.strftime("%b %d").replace(" 0", " ")
     except (ValueError, TypeError):
         return ""
+
+
+def _pay(deal: dict) -> float:
+    """How good the deal is, weighted by how much the click pays (Amazon first, then eBay)."""
+    from emailer import payout_score
+    try:
+        return payout_score(deal)
+    except Exception:  # never let ranking break the page
+        return 0.0
 
 
 def card(deal: dict) -> str:
@@ -232,7 +346,8 @@ def card(deal: dict) -> str:
              "data-niches": ",".join(deal.get("niches") or []), "data-code": code,
              "data-cond": deal.get("condition") or "",
              "data-hash": deal["deal_hash"][:16], "data-new": str(deal.get("created_at") or ""),
-             "data-title": title, "data-value": deal["discount_value"], "data-link": link}
+             "data-title": title, "data-value": deal["discount_value"], "data-link": link,
+             "data-pay": f"{_pay(deal):.2f}"}
     attr = " ".join(f'{k}="{e(v, quote=True)}"' for k, v in attrs.items())
     store_url = u("/store/" + slug(deal["store_domain"]) + ".html")
     anchor = "d-" + deal["deal_hash"][:12]
@@ -313,7 +428,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 <footer><div class="wrap">{e(DISCLOSURE)} ·
 <a href="{u("/guides/")}">Buying guides</a> · <a href="{u("/stores/")}">All stores</a> · <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>{pick}
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
-</div></footer>{SITE_JS}</body></html>"""
+</div></footer>{SITE_JS}{PICKS_JS}</body></html>"""
 
 
 def event_banner() -> str:
@@ -666,6 +781,7 @@ async def build_site(db, out_dir: str | None = None) -> int:
             f'<div class="stats"><span class="stat">{len(home_deals)} live deals</span>'
             f'<span class="stat">{n_codes} promo codes</span><span class="stat">{n_stores} stores</span></div>'
             f'{join_banner(niches)}<div class="tiles">{tiles}</div></section>{premiums}'
+            f"{my_deals_section()}{signup_box()}"
             f"{filter_bar(len(home_deals), niches)}{deal_grid(home_deals)}")
     _write(root, "index.html", page(f"{settings.site_name}: today's best deals, coupon codes & freebies",
                                     body, "Live coupon codes, freebies and price drops for farm, "
@@ -788,7 +904,12 @@ async def build_site(db, out_dir: str | None = None) -> int:
         "time) to know which deals are popular. We don't store your IP address with that "
         "count.</p><p>Our server keeps standard technical logs for security, deleted "
         "regularly.</p><p>Your Watchlist is saved only in your own browser on your own "
-        "device. We never see it.</p><p>When you leave for a store through an affiliate link, that store "
+        "device. We never see it.</p><h2>Deals by email</h2><p>If you sign up for deal emails we "
+        "keep your email address and the answers you picked (deal types, Prime, audiobooks, how "
+        "often) so we only send what you asked for. Our email service, Brevo, stores and sends "
+        "them. Every email has a one-tap unsubscribe link. We never sell or share your email. "
+        "Your picks are also saved in your own browser so the site can show your deals first.</p>"
+        "<p>When you leave for a store through an affiliate link, that store "
         "and its affiliate network may set their own cookies under their own privacy "
         "policies.</p>"
         "<h2>Browser extension</h2><p>Our Deal Hunter browser extension looks at the web "

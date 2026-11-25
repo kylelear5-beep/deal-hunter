@@ -21,7 +21,7 @@ def test_email_links_go_to_our_site_and_hide_amazon_dollars(monkeypatch):
                                "tools": [mk("walmart.com", "$60 off", "Chainsaw", "tools")]},
                               False, datetime(2026, 11, 25))
     assert "amazon.com/" not in html            # no Amazon links in emails
-    assert "example.github.io/deal-hunter/store/amazon.com.html#d-" in html
+    assert "example.github.io/deal-hunter/store/amazon.com.html?for=" in html and "#d-" in html
     assert "$40" not in html and "$99" not in html and "$60 off" in html
     assert "{% if contact.DEALS_FARM or contact.DEALS_ALL %}" in html
     assert "{{ unsubscribe }}" in html and "{% if not contact.HAS_PRIME %}" in html
