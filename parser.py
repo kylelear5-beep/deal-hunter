@@ -290,6 +290,12 @@ def _is_quota_error(exc: Exception) -> bool:
     return "429" in text or "RESOURCE_EXHAUSTED" in text or "quota" in text.lower()
 
 
+def _is_daily_limit(msg: str) -> bool:
+    """A per-day limit (Groq says 'tokens per day (TPD)' / 'requests per day (RPD)')."""
+    m = msg.lower()
+    return "429" in m and ("per day" in m or "(tpd)" in m or "(rpd)" in m)
+
+
 def _is_model_gone(msg: str) -> bool:
     m = msg.lower()
     return ("model_not_found" in m or "does not exist" in m or "decommissioned" in m
@@ -444,6 +450,11 @@ class LLMExtractor:
                         break
                     self._next_backup_model(msg)
                     continue
+                if _is_daily_limit(msg):
+                    # This model's free daily limit is used up: switch now and retry the same post.
+                    if self._next_backup_model(msg):
+                        continue
+                    break
                 if _is_quota_error(exc):
                     self.backup_hits += 1
                     if self.backup_hits >= 2:

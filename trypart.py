@@ -20,7 +20,7 @@ from config import settings
 
 log = logging.getLogger("deal-hunter.trypart")
 
-PARTS = ("feeds", "ai", "backup", "email", "verify", "links", "site", "sheet", "recheck", "selfheal")
+PARTS = ("feeds", "ai", "backup", "email", "verify", "links", "site", "sheet", "recheck", "selfheal", "all")
 LIMIT_SECONDS = 8 * 60
 
 
@@ -131,6 +131,12 @@ RUNNERS = {"feeds": _feeds, "ai": _ai, "backup": _backup, "email": _email, "veri
 
 
 async def try_part(part: str) -> bool:
+    if part == "all":   # full check: every part, one after another, each on its own fresh copy
+        results = {p: await try_part(p) for p in RUNNERS}
+        bad = [p for p, ok in results.items() if not ok]
+        print(f"TRY-ALL: {len(results) - len(bad)} of {len(results)} parts work"
+              + (f"; broken: {', '.join(bad)}" if bad else ""))
+        return not bad
     if part not in RUNNERS:
         print(f"Unknown part '{part}'. Choose one of: {', '.join(PARTS)}")
         return False

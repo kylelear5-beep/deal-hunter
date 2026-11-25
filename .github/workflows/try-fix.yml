@@ -3,7 +3,7 @@
 # check and the "tests" check both pass.
 #
 # The part comes from the pull request title, e.g. "Auto-fix [part: verify]: ...".
-# Parts: feeds, ai, backup, verify, links, site, sheet, recheck, selfheal (default: site).
+# Parts: feeds, ai, backup, email, verify, links, site, sheet, recheck, selfheal, or all (default: site).
 name: try-fix
 
 on:
@@ -21,7 +21,7 @@ jobs:
   try-fix:
     if: startsWith(github.head_ref, 'autofix/')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45   # 'all' runs every part
     env:
       DB_PATH: data/deals.db
       BACKUP_DIR: data/backups
@@ -48,7 +48,7 @@ jobs:
           echo "Trying part: ${part:-site}"
 
       - name: Install Chromium
-        if: steps.part.outputs.part == 'verify' || steps.part.outputs.part == 'links'
+        if: steps.part.outputs.part == 'verify' || steps.part.outputs.part == 'links' || steps.part.outputs.part == 'all'
         run: python -m playwright install --with-deps chromium
 
       - name: Write settings file
