@@ -573,3 +573,27 @@ async def test_buying_guides_generated(db, channels, tmp_path):
     assert "DeWalt chainsaw" in guide
     assert (tmp_path / "guides" / "index.html").exists()
     assert "/guides/" in (tmp_path / "index.html").read_text(encoding="utf-8")
+
+
+async def test_store_pages_seo(db, channels, tmp_path):
+    import json as _json, re as _re
+    await db.insert_deal(make("tractorsupply.com", "$60 off", summary="DeWalt chainsaw"))
+    await sitegen.build_site(db, str(tmp_path))
+    page = (tmp_path / "store" / "tractorsupply-com.html").read_text(encoding="utf-8") \
+        if (tmp_path / "store" / "tractorsupply-com.html").exists() else \
+        next((p.read_text(encoding="utf-8") for p in (tmp_path / "store").glob("tractorsupply*")))
+    assert "Tractor Supply Coupon Codes" in page and "Questions" in page
+    blob = _re.search(r'<script type="application/ld\+json">(.*?)</script>', page, _re.S).group(1)
+    data = _json.loads(blob.replace("<\\/", "</"))
+    kinds = {g["@type"] for g in data["@graph"]}
+    assert {"BreadcrumbList", "FAQPage", "ItemList"} <= kinds
+    # a store in our categories with no deals still gets a page
+    assert any((tmp_path / "store").glob("ruralking*"))
+    assert (tmp_path / "stores" / "index.html").exists()
+
+
+def test_seo_amazon_never_shows_dollars():
+    import seo
+    s = seo.summary("amazon.com", [{"store_domain": "amazon.com", "discount_value": "$40 off"}])
+    assert "$" not in seo.best_text(s)
+    assert "$" not in seo.intro("Amazon", s, __import__("datetime").datetime(2026, 11, 25))

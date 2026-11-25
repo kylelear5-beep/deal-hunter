@@ -295,7 +295,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 <p class="meta">Saved on this device only. Prices and codes can change, so check before you buy.</p>
 <div id="wl-list"></div></div></div>
 <footer><div class="wrap">{e(DISCLOSURE)} ·
-<a href="{u("/guides/")}">Buying guides</a> · <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>{pick}
+<a href="{u("/guides/")}">Buying guides</a> · <a href="{u("/stores/")}">All stores</a> · <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>{pick}
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
 </div></footer>{SITE_JS}</body></html>"""
 
@@ -689,21 +689,60 @@ async def build_site(db, out_dir: str | None = None) -> int:
     urls.append("/free-trials/")
     written += 1
 
-    # Store pages
-    for domain, deals in stores.items():
-        name = deals[0]["store_name"]
+    # Store pages: every store with deals, plus every store in our categories (so Google
+    # always finds a page for "<store> coupon"), with intro text, Q&A and structured data.
+    import seo
+    from alerts import price_safe as _ps
+    all_domains = set(stores)
+    for n in niches:
+        all_domains |= set(n.stores)
+    base_url = (settings.public_base_url or "").rstrip("/")
+    now_local = datetime.now()
+    month = now_local.strftime("%B %Y")
+    store_index = []
+    for domain in sorted(all_domains):
+        deals = stores.get(domain, [])
+        name = seo.store_name(domain, deals[0]["store_name"] if deals else "")
         deals = sorted({d["deal_hash"]: d for d in deals}.values(),
                        key=lambda d: str(d["created_at"]), reverse=True)
         deals.sort(key=lambda d: not d.get("is_verified"))      # verified codes first
-        month = datetime.now().strftime("%B %Y")
-        body = (f"<h1>{e(name)} coupon codes &amp; deals</h1>"
-                f"<p class='lead'>Active {e(name)} promo codes and sales for {month}.</p>"
-                f"{filter_bar(len(deals))}{deal_grid(deals)}")
+        safe = [_ps(d) for d in deals]
+        s = seo.summary(domain, safe)
+        qa = seo.faq(name, s)
+        rel = f"/store/{slug(domain)}.html"
+        page_url = base_url + rel if base_url else rel
+        related = ""
+        if not deals:
+            niche_ids = [n.id for n in niches if domain in n.stores]
+            pool = [d for nid in niche_ids for d in by_niche.get(nid, [])][:12]
+            if pool:
+                related = "<h2>Similar deals right now</h2>" + deal_grid(pool)
+        body = (f"<h1>{e(name)} coupon codes &amp; promo codes</h1>"
+                f"<p class='lead'>{e(seo.intro(name, s, now_local))}</p>"
+                f"{filter_bar(len(deals)) if deals else ''}{deal_grid(deals) if deals else ''}"
+                f"{related}{seo.faq_html(qa)}")
+        head = (f'<link rel="canonical" href="{e(page_url, quote=True)}">'
+                + seo.jsonld(name, page_url, (base_url + "/") if base_url else "/", safe, qa,
+                             [go_link(d) for d in deals]))
+        count = f"{s['codes']} codes" if s["codes"] else f"{s['deals']} deals"
         _write(root, f"store/{slug(domain)}.html",
-               page(f"{name} coupon codes & deals ({month}) | {settings.site_name}", body,
-                    f"Working {name} promo codes and deals for {month}."))
-        urls.append(f"/store/{slug(domain)}.html")
+               page(f"{name} Coupon Codes & Promo Codes ({month}) | {settings.site_name}", body,
+                    f"{name} coupon codes and deals for {month}: {count}, updated every 30 "
+                    f"minutes. Copy a working {name} promo code and save.", extra_head=head))
+        urls.append(rel)
+        store_index.append((name, rel, s["deals"]))
         written += 1
+    links = "".join(f'<li><a href="{u(rel)}">{e(nm)} coupons</a>'
+                    f'{f" <small>({cnt} live)</small>" if cnt else ""}</li>'
+                    for nm, rel, cnt in sorted(store_index, key=lambda x: x[0].lower()))
+    _write(root, "stores/index.html",
+           page(f"All stores: coupon codes A to Z | {settings.site_name}",
+                f"<h1>All stores A to Z</h1><p class='lead'>Coupon codes and deals for "
+                f"{len(store_index)} stores, updated every 30 minutes.</p><ul class='stores'>{links}</ul>",
+                "Coupon codes and promo codes for farm, tool, motorcycle, auto, electronics and "
+                "telescope stores, A to Z."))
+    urls.append("/stores/")
+    written += 1
 
     # About / disclosure + privacy
     contact = (f'<p>Contact: <a href="mailto:{e(settings.site_contact_email)}">'
