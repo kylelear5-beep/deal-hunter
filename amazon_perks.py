@@ -70,6 +70,16 @@ EVENTS = [
 ]
 
 
+# Always-on Amazon shortcuts (Kyle's links): (text, link)
+SHORTCUTS = [
+    ("🔥 Amazon Best Sellers", "https://www.amazon.com/gp/bestsellers/"),
+]
+
+
+def shortcut_links() -> list[tuple[str, str]]:
+    return [(t, build_affiliate_url(u)) for t, u in SHORTCUTS]
+
+
 def active_events(today=None) -> list[tuple[str, str]]:
     """[(text, tagged link)] for events running today (New York time)."""
     from datetime import datetime
@@ -90,7 +100,8 @@ def perks_telegram() -> str:
     e = html.escape
     lines = [f'<b><a href="{e(link, quote=True)}">{e(t)} →</a></b>'
              for t, link in active_events()]
-    lines += ["<b>🎁 Free trials &amp; Amazon perks worth a look</b>", ""]
+    lines += [f'<a href="{e(link, quote=True)}">{e(t)}</a>' for t, link in shortcut_links()]
+    lines += ["", "<b>🎁 Free trials &amp; Amazon perks worth a look</b>", ""]
     for em, t, b, link in perk_links()[:6]:
         lines.append(f'{em} <a href="{e(link, quote=True)}">{e(t)}</a>: {e(b)}')
     lines += ["", f"<i>{e(NOTE)}</i>", f"<i>{e(DISCLOSURE)}</i>"]
@@ -99,6 +110,7 @@ def perks_telegram() -> str:
 
 def perks_discord(username: str) -> dict:
     rows = [f"**[{t} →]({link})**\n" for t, link in active_events()]
+    rows += [f"[{t}]({link})\n" for t, link in shortcut_links()]
     rows += [f"{em} [{t}]({link}): {b}" for em, t, b, link in perk_links()[:6]]
     return {"username": username[:80], "embeds": [{
         "title": "🎁 Free trials & Amazon perks worth a look",

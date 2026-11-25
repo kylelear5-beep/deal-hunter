@@ -262,6 +262,9 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
             '📦 Open Box</a>')
     nav += (f'<a href="{u("/free-trials/")}"{" class=on" if active == "free-trials" else ""}>'
             '🎁 Free trials</a>')
+    from amazon_perks import shortcut_links
+    nav += "".join(f'<a href="{e(link, quote=True)}" rel="sponsored nofollow" target="_blank">'
+                   f'{e(t.replace("Amazon ", ""))}</a>' for t, link in shortcut_links())
     home_on = ' class=on' if active == "home" else ""
     pick = ""
     if settings.sovrn_pick_url.startswith("https://sovrn.co/"):
