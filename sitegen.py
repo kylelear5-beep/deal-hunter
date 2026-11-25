@@ -66,7 +66,7 @@ h1{font-size:30px;line-height:1.2;margin:0 0 6px} h2{font-size:24px;margin:28px 
   font-size:14px;padding:4px 10px;border-radius:999px}
 .hero-vid .replay{position:absolute;right:8px;bottom:8px;min-height:36px;padding:0 12px;border-radius:999px;
   border:0;background:rgba(17,24,39,.85);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
-.hero-vid .go{display:block;margin-top:10px;min-height:48px;line-height:48px;border-radius:12px;
+.hero-vid .go{display:block;margin-top:10px;min-height:48px;line-height:46px;border-radius:12px;border:2px solid #b45309;
   background:#f59e0b;color:#111827;font-weight:900;font-size:18px;text-decoration:none}
 .hero-vid .go:hover{background:#d97706}
 @media (max-width:760px){.hero-row{flex-direction:column}.hero-vid{width:100%;max-width:420px;margin:0 auto}}
