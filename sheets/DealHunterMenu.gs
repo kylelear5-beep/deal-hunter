@@ -246,8 +246,39 @@ function doPost(e) {
       payload: JSON.stringify({email: email, attributes: signupAttrs_(d),
         listIds: [BREVO_SIGNUP_LIST], updateEnabled: true})});
     var code = r.getResponseCode();
+    logSignup_(email, d, code);
     return out({ok: code < 300, code: code});
   } catch (err) {
     return out({ok: false, why: String(err).slice(0, 100)});
+  }
+}
+
+// One row per sign-up on the "Sign-ups" tab, newest at the bottom.
+var SIGNUP_TAB = 'Sign-ups';
+var SHEET_ID = '1sWSb4TBJBCBdyReGPGnTpeVSpbWwTEc4kucJFm6Q1FI';
+var CAT_NAMES = {moto: 'Motorcycle parts', auto: 'Car & truck parts', vintage: 'Vintage & classic',
+  farm: 'Farm & ranch', tools: 'Tools', electronics: 'Tech', astro: 'Telescope & space', other: 'Home',
+  all: 'Everything'};
+
+function logSignup_(email, d, code) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName(SIGNUP_TAB);
+    if (!sh) {
+      sh = ss.insertSheet(SIGNUP_TAB);
+      sh.appendRow(['Signed up (NY time)', 'Email', 'Deal types', 'Has Prime', 'Audiobooks',
+        'How often', 'Saved in Brevo']);
+      sh.getRange(1, 1, 1, 7).setFontWeight('bold').setBackground('#f3f3f3');
+      sh.setFrozenRows(1);
+    }
+    var cats = String(d.cats || '').split(',').filter(String)
+      .map(function (c) { return CAT_NAMES[c] || c; }).join(', ') || 'Everything';
+    var yn = function (v) { return v === 'yes' ? 'Yes' : v === 'no' ? 'No' : ''; };
+    // A leading ' keeps the email as plain text, never a formula.
+    sh.appendRow([Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd HH:mm'),
+      "'" + email, cats, yn(d.prime), yn(d.audio), d.freq === 'weekly' ? 'Weekly' : 'Daily',
+      code < 300 ? 'Yes' : 'No (' + code + ')']);
+  } catch (err) {
+    // Never block a sign-up because the Sheet could not be written.
   }
 }
