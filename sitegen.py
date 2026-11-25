@@ -289,7 +289,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 <p class="meta">Saved on this device only. Prices and codes can change, so check before you buy.</p>
 <div id="wl-list"></div></div></div>
 <footer><div class="wrap">{e(DISCLOSURE)} ·
-<a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>{pick}
+<a href="{u("/guides/")}">Buying guides</a> · <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>{pick}
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
 </div></footer>{SITE_JS}</body></html>"""
 
@@ -457,6 +457,8 @@ def tiktok_scripts_html(deals: list[dict]) -> str:
             tags += " #truck #carmods"
         if "electronics" in niches:
             tags += " #techdeals #electronics"
+        if "astro" in niches:
+            tags += " #astrophotography #telescope"
         caption = f"{hook} - {d.get('promo_code') or 'Link in bio / Telegram'} {tags}"
         full_copy = f"HOOK (on screen):\n{hook}\n\nSAY THIS:\n{spoken}\n\nCAPTION:\n{caption}"
         cards.append(
@@ -477,6 +479,88 @@ def tiktok_scripts_html(deals: list[dict]) -> str:
     return page(f"Video scripts | {settings.site_name}", body,
                 "Short-video deal scripts",
                 extra_head='<meta name="robots" content="noindex,nofollow">')
+
+
+# ---------------------------------------------------------------- buying guides
+# Evergreen tips per category; the deal list under them refreshes every run.
+GUIDE_TIPS = {
+    "farm": ("Farm, ranch & outdoor gear", [
+        "Tractor Supply and Rural King run their biggest sales around spring planting and "
+        "Black Friday. Feed, fencing and chicken supplies drop most in late winter.",
+        "Buy chainsaws, log splitters and generators in spring or summer, not right before a "
+        "storm when prices and demand jump.",
+        "Check the store's own brand (like Tractor Supply's in-house lines). It's often the same "
+        "quality for less.",
+        "Sign up for store reward programs. Many give a coupon on your birthday or after a few "
+        "purchases."]),
+    "moto": ("Motorcycle gear & parts", [
+        "Helmets, jackets and gloves go on sale at the end of riding season (fall) and when new "
+        "colors come out in early spring.",
+        "RevZilla, Cycle Gear and Motorcycle Superstore often price-match each other, so check "
+        "all three.",
+        "Never buy a used helmet. A helmet that has been dropped may not protect you.",
+        "Closeout colors are the same gear for less. If you don't care about the color, save."]),
+    "tools": ("Power tools & hand tools", [
+        "The best tool deals come around Father's Day, Black Friday and the holidays, when "
+        "brands add a free battery or tool.",
+        "Stay with one battery brand (DeWalt, Milwaukee, Ryobi...). Bare tools without a "
+        "battery are much cheaper once you own batteries.",
+        "Kits with 2 batteries are often cheaper than buying the batteries alone.",
+        "Factory-reconditioned tools usually have a warranty and cost far less than new."]),
+    "auto": ("Auto & truck parts", [
+        "Auto parts stores have online-only codes, often 20% off or more. Order online and pick "
+        "up in store the same day.",
+        "Check your vehicle's exact year, engine and trim before buying. Returns on wrong "
+        "parts are a hassle.",
+        "Oil, filters and wipers are cheapest during holiday weekend sales. Stock up then.",
+        "Many stores test batteries, alternators and check-engine codes for free."]),
+    "electronics": ("Electronics & tech", [
+        "Compare the exact model number. Black Friday TVs are sometimes cheaper 'special' models "
+        "with fewer features.",
+        "Open-box and refurbished items from Best Buy, Amazon and Apple often have the same "
+        "warranty as new. See our Open Box page.",
+        "Prices on last year's phones, laptops and headphones drop when new models come out.",
+        "Price-tracking helps: if an item was cheaper last month, it will probably drop again."]),
+    "astro": ("Telescopes, binoculars & astro gear", [
+        "Telescope sales come around Black Friday, the holidays and big sky events like "
+        "eclipses and meteor showers.",
+        "For beginners, a smart telescope or a simple Dobsonian gives the most views per dollar.",
+        "Check the mount, not just the telescope. A shaky mount ruins the view.",
+        "Astro shops like High Point Scientific and Agena often bundle free eyepieces or "
+        "filters, which adds real value."]),
+    "other": ("Everyday & home", [
+        "Walmart, Target and Amazon match each other on big sale days. Check all three.",
+        "Target Circle and Walmart+ deals can stack with sale prices.",
+        "Household basics are cheapest with subscribe-and-save or bulk club packs.",
+        "Kitchen gadgets like air fryers drop most around Prime Day and Black Friday."]),
+}
+
+
+def guide_html(niche, deals: list[dict]) -> str:
+    """'Best <category> deals this week' guide: tips + the top 10 live deals."""
+    topic, tips = GUIDE_TIPS.get(niche.id, (niche.name, []))
+    month = datetime.now().strftime("%B %Y")
+    tip_html = "".join(f"<li>{e(t)}</li>" for t in tips)
+    body = (f"<h1>{e(niche.emoji)} Best {e(topic.lower())} deals: {month} buying guide</h1>"
+            f"<p class='lead'>How to save on {e(topic.lower())}, plus the top {len(deals)} live "
+            f"deals right now. Updated {datetime.now().strftime('%B %d, %Y')}.</p>"
+            f"<h2>Money-saving tips</h2><ul>{tip_html}</ul>"
+            f"<h2>Top deals this week</h2>{deal_grid(deals)}"
+            f'<p><a class="btn" href="{u("/" + niche.id + "/")}">See all {e(niche.name.lower())} →</a></p>')
+    return page(f"Best {topic.lower()} deals ({month}): buying guide | {settings.site_name}", body,
+                f"How to save on {topic.lower()} in {month}, with the best live deals and "
+                "coupon codes, updated every 30 minutes.", active=niche.id)
+
+
+def guides_index_html(niches) -> str:
+    items = "".join(
+        f'<a class="tile" href="{u("/guides/" + n.id + ".html")}"><span class="em">{e(n.emoji)}</span>'
+        f'<span>{e(GUIDE_TIPS.get(n.id, (n.name,))[0])}<small>Buying guide</small></span></a>'
+        for n in niches)
+    return page(f"Buying guides | {settings.site_name}",
+                "<h1>📚 Buying guides</h1><p class='lead'>When to buy, what to look for, and "
+                f"the best live deals in each category.</p><div class='tiles'>{items}</div>",
+                "Buying guides with money-saving tips and the best live deals by category.")
 
 
 def _write(root: Path, rel: str, content: str) -> None:
@@ -557,6 +641,17 @@ async def build_site(db, out_dir: str | None = None) -> int:
                 "Open-box, refurbished and renewed deals from Amazon, Best Buy, Walmart and "
                 "more, updated every 30 minutes.", active="open-box"))
     urls.append("/open-box/")
+    written += 1
+
+    # Buying guides: tips + the top 10 deals of the last week in each category
+    for n in niches:
+        week = [d for d in by_niche[n.id] if _ts(d.get("created_at")) >= week_ago]
+        top = sorted(week, key=value_score, reverse=True)[:10]
+        _write(root, f"guides/{n.id}.html", guide_html(n, top))
+        urls.append(f"/guides/{n.id}.html")
+        written += 1
+    _write(root, "guides/index.html", guides_index_html(niches))
+    urls.append("/guides/")
     written += 1
 
     # Store pages
