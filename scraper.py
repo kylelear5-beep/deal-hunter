@@ -132,6 +132,9 @@ def html_to_text(html: str) -> str:
     return BeautifulSoup(html or "", "lxml").get_text(" ", strip=True)
 
 
+FEED_COUNTS: dict[str, int] = {}   # feed -> items last scrape (-1 = error); read by selfheal
+
+
 class RSSScraper(BaseScraper):
     name = "rss"
 
@@ -162,7 +165,9 @@ class RSSScraper(BaseScraper):
         for feed, res in zip(self.feeds, results):
             if isinstance(res, Exception):
                 log.warning("RSS feed failed (%s): %s", feed, res)
+                FEED_COUNTS[feed] = -1
             else:
+                FEED_COUNTS[feed] = len(res)
                 buckets.append(res)
         return round_robin(buckets)
 

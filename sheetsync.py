@@ -283,6 +283,11 @@ async def write_sheet_files(db, out_dir: Optional[str] = None,
     finally:
         if own:
             await client.aclose()
+    try:
+        from selfheal import key_alerts
+        await key_alerts(db, files["status.csv"])
+    except Exception as exc:  # noqa: BLE001 - alerts must never stop the sheet files
+        log.warning("Key watch failed: %s", exc)
     for name, rows in files.items():
         (root / name).write_text(_csv(rows), encoding="utf-8")
     log.info("Sheet files written: %s", ", ".join(files))

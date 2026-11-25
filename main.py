@@ -41,8 +41,17 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
                        extractor: LLMExtractor) -> dict:
     started = datetime.now(timezone.utc)
     sources = load_sources()
+    import selfheal
+    import scraper as scraper_mod
+    if sources.get("rss"):
+        sources["rss"] = await selfheal.active_feeds(db, list(sources["rss"]))
+    scraper_mod.FEED_COUNTS.clear()
 
     items = await scrape_all(sources)
+    try:
+        await selfheal.update_feed_health(db, dict(scraper_mod.FEED_COUNTS))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Feed health check failed: %s", exc)
     by_source: dict[str, int] = {}
     for i in items:
         kind = i.source.split(":", 1)[0]
@@ -57,7 +66,13 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
     skipped = [item_hash(i) for i in fresh if not looks_like_deal(i.text)]
     await db.mark_processed(skipped)
     candidates = [i for i in fresh if looks_like_deal(i.text)]
-    todo = candidates[: settings.max_ai_items_per_run]
+    try:
+        await selfheal.tune_ai_budget(db)
+        per_run = await selfheal.ai_per_run(db)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("AI budget tuning failed: %s", exc)
+        per_run = settings.max_ai_items_per_run
+    todo = candidates[:per_run]
     waiting = len(candidates) - len(todo)
     log.info("Scraped %d items: %d new, %d for the AI now%s", len(items), len(fresh), len(todo),
              f", {waiting} wait for the next run" if waiting else "")
@@ -92,18 +107,27 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
 
     try:
         _, finished = await parse_items(todo, extractor, on_item=save_item)
+        if getattr(extractor, "quota_out", False):
+            await selfheal.note_quota_out(db)
     finally:
         await link_client.aclose()
     llm_failed = len(todo) - len(finished)
     new, alerted, queued = counts["new"], counts["alerted"], counts["queued"]
 
     verify_stats = {}
-    if settings.verify_enabled:
+    if settings.verify_enabled and await selfheal.part_enabled(db, "verifier"):
         from verifier import verify_pending
         try:
-            verify_stats = await verify_pending(db, dispatcher)
+            verify_stats = await asyncio.wait_for(verify_pending(db, dispatcher), timeout=300)
+            timed_out = verify_stats.get("timed_out", 0)
+            await selfheal.record_part(db, "verifier", ok=not timed_out,
+                                       why=f"{timed_out} checks froze" if timed_out else "")
         except Exception as exc:  # noqa: BLE001 - verifier issues must not kill the loop
             log.error("Verifier crashed: %s", exc)
+            await selfheal.record_part(db, "verifier", ok=False,
+                                       why=type(exc).__name__ or "timeout")
+    elif settings.verify_enabled:
+        log.info("Promo-code checks are switched off for now (safe mode)")
 
     purged = await db.purge_expired()
     secs = (datetime.now(timezone.utc) - started).total_seconds()
@@ -377,21 +401,37 @@ async def run_actions_once(db, extractor) -> dict:
 
     await publish()                   # site first, so slow link lookups can never block it
     # Then look up store pages with whatever time is left (about 14 minutes per run in all).
+    import selfheal
+    try:                              # once a day: hide deals whose page is gone (404)
+        if await asyncio.wait_for(selfheal.hide_dead_links(db), timeout=150):
+            await publish()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Dead link check failed: %s", exc)
     left = RUN_BUDGET_SECONDS - (time.monotonic() - started)
-    if left > 60:
+    if left > 60 and await selfheal.part_enabled(db, "store_links"):
         try:
             from linkresolve import backfill_store_links
             got = await backfill_store_links(db, deadline=time.monotonic() + left)
+            await selfheal.record_part(db, "store_links", ok=True)
             if got.get("found"):
                 await publish()       # show the new product links right away
         except Exception as exc:  # noqa: BLE001 - link lookups must never stop a run
             log.warning("Store link backfill failed: %s", exc)
+            await selfheal.record_part(db, "store_links", ok=False, why=type(exc).__name__)
+    elif left > 60:
+        log.info("Store link lookups are switched off for now (safe mode)")
     else:
         log.info("No time left for store link lookups this run")
     return summary
 
 
 async def cmd_actions() -> None:
+    from selfheal import check_and_restore
+    result = check_and_restore(settings.db_path, settings.backup_dir)
+    if result.startswith("restored"):
+        from watchdog import notify_owner
+        await notify_owner("🧰 Deal Hunter: the deal database was damaged, so yesterday's "
+                           f"backup was put back ({result.split(':', 1)[1]}). All good now.")
     extractor = make_extractor()
     async with Database() as db:
         await run_actions_once(db, extractor)

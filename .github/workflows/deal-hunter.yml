@@ -121,6 +121,13 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@v4
 
+      - name: Tell Kyle if runs keep failing
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+        run: python run_alert.py "${{ job.status }}"
+
       # GitHub's built-in schedule can be late or skipped, so each run also starts the
       # next one, 30 minutes after it began. Cancel a run on GitHub to stop the chain.
       - name: Start the next run in 30 minutes
