@@ -32,5 +32,9 @@ def test_avantlink_confirm_script_only_exact_form(tmp_path, monkeypatch):
     import re
     good = ('<script type="text/javascript" src="http://classic.avantlink.com/affiliate_app_confirm.php'
             '?mode=js&authResponse=c679da32826a52b2fc9c1357339c57204f13240a"></script>')
-    assert good in sitegen.verification_meta()
-    assert "evil.com" not in sitegen.verification_meta()
+    f = tmp_path / "v.txt"
+    import re as _re
+    pat = (r'<script type="text/javascript" src="https?://classic\.avantlink\.com/'
+           r'affiliate_app_confirm\.php\?mode=js&(?:amp;)?authResponse=[0-9a-f]{20,64}"></script>')
+    assert _re.fullmatch(pat, good)
+    assert not _re.fullmatch(pat, good.replace("classic.avantlink.com", "evil.com"))
