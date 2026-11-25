@@ -26,6 +26,7 @@ function onOpen() {
     .addItem('Open last run log', 'openLastLog')
     .addSeparator()
     .addItem('Setup (GitHub key)', 'setup')
+    .addItem('Setup email sign-ups (Brevo key)', 'setupEmail')
     .addToUi();
 }
 
@@ -194,3 +195,59 @@ function open_(url) {
 
 function toast_(msg) { try { SpreadsheetApp.getActive().toast(msg, 'Deal Hunter', 8); } catch (e) {} }
 function alert_(msg) { try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Logger.log(msg); } }
+
+// ---------------------------------------------------------------- email sign-ups
+// The website's sign-up box posts here (Deploy > Web app). We pass it to Brevo.
+// The Brevo key is kept in this script's private settings, never in a cell or on the site.
+var BREVO_SIGNUP_LIST = 4;
+var CAT_ATTRS = {farm: 'DEALS_FARM', tools: 'DEALS_TOOLS', moto: 'DEALS_MOTO', auto: 'DEALS_AUTO',
+  electronics: 'DEALS_TECH', astro: 'DEALS_ASTRO', other: 'DEALS_HOME'};
+
+function setupEmail() {
+  var ui = SpreadsheetApp.getUi();
+  var r = ui.prompt('Deal Hunter email sign-ups',
+    'Paste your Brevo API key below (it starts with xkeysib-).', ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var m = r.getResponseText().match(/xkeysib-[A-Za-z0-9-]+/);
+  if (!m) { ui.alert('That does not look like a Brevo key (it should start with xkeysib-).'); return; }
+  PropertiesService.getScriptProperties().setProperty('BREVO_KEY', m[0]);
+  var test = UrlFetchApp.fetch('https://api.brevo.com/v3/account',
+    {headers: {'api-key': m[0]}, muteHttpExceptions: true});
+  if (test.getResponseCode() !== 200) {
+    PropertiesService.getScriptProperties().deleteProperty('BREVO_KEY');
+    ui.alert('Brevo did not accept that key (' + test.getResponseCode() + '). Try copying it again.');
+    return;
+  }
+  ui.alert('Done. Email sign-ups now go to Brevo.');
+}
+
+function signupAttrs_(d) {
+  var cats = String(d.cats || '').split(',');
+  var a = {DEALS_ALL: cats.indexOf('all') > -1 || !cats.some(function (c) { return CAT_ATTRS[c]; }),
+    HAS_PRIME: d.prime === 'yes', LIKES_AUDIOBOOKS: d.audio === 'yes',
+    FREQUENCY: d.freq === 'weekly' ? 2 : 1};
+  Object.keys(CAT_ATTRS).forEach(function (c) { a[CAT_ATTRS[c]] = cats.indexOf(c) > -1; });
+  return a;
+}
+
+function doPost(e) {
+  var out = function (o) {
+    return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+  };
+  try {
+    var d = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var email = String(d.email || '').trim().toLowerCase();
+    if (d.website) return out({ok: true});                       // bot trap: real people leave it empty
+    if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(email) || email.length > 120) return out({ok: false, why: 'email'});
+    var key = PropertiesService.getScriptProperties().getProperty('BREVO_KEY');
+    if (!key) return out({ok: false, why: 'not set up'});
+    var r = UrlFetchApp.fetch('https://api.brevo.com/v3/contacts', {
+      method: 'post', contentType: 'application/json', headers: {'api-key': key}, muteHttpExceptions: true,
+      payload: JSON.stringify({email: email, attributes: signupAttrs_(d),
+        listIds: [BREVO_SIGNUP_LIST], updateEnabled: true})});
+    var code = r.getResponseCode();
+    return out({ok: code < 300, code: code});
+  } catch (err) {
+    return out({ok: false, why: String(err).slice(0, 100)});
+  }
+}

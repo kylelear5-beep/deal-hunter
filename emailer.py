@@ -159,10 +159,13 @@ def _worth(deal: dict) -> str:
     return f"{pct:g}% off" if pct else "Price drop"
 
 
-def deal_url(deal: dict) -> str:
+def deal_url(deal: dict, nid: str = "") -> str:
+    """Link to the deal on our site. ?for= carries the reader's deal type (never their email)
+    so the site can show their deals first on any device."""
     from sitegen import slug
     base = (settings.public_base_url or "").rstrip("/")
-    return f"{base}/store/{slug(deal['store_domain'])}.html#d-{deal['deal_hash'][:12]}"
+    q = f"?for={nid}" if nid else ""
+    return f"{base}/store/{slug(deal['store_domain'])}.html{q}#d-{deal['deal_hash'][:12]}"
 
 
 def _safe(text: str) -> str:
@@ -170,7 +173,7 @@ def _safe(text: str) -> str:
     return html.escape(text or "").replace("{", "&#123;").replace("}", "&#125;").replace("%", "&#37;")
 
 
-def _deal_row(d: dict) -> str:
+def _deal_row(d: dict, nid: str = "") -> str:
     d = price_safe(d)
     summary = d.get("summary") or f"{d['store_name']} deal"
     if _is_amazon(d):                      # emails stay in inboxes: never an Amazon price
@@ -182,7 +185,7 @@ def _deal_row(d: dict) -> str:
             f'<div style="font-size:14px;color:#6b7280">{_safe(d["store_name"])}</div>'
             f'<div style="font-size:18px;font-weight:700;color:#111827">{title}</div>'
             f'<div style="font-size:18px;font-weight:800;color:#047857">{_safe(_worth(d))}</div>{code}'
-            f'<div style="margin-top:8px"><a href="{html.escape(deal_url(d), quote=True)}" '
+            f'<div style="margin-top:8px"><a href="{html.escape(deal_url(d, nid), quote=True)}" '
             f'style="background:#111827;color:#fff;padding:10px 16px;border-radius:8px;'
             f'text-decoration:none;font-weight:700">See this deal →</a></div></td></tr>')
 
@@ -194,7 +197,7 @@ def build_html(sections: dict[str, list[dict]], weekly: bool, today: datetime) -
         deals = sections.get(nid) or []
         if not deals:
             continue
-        rows = "".join(_deal_row(d) for d in deals)
+        rows = "".join(_deal_row(d, nid) for d in deals)
         parts.append(f'{{% if contact.{attr} or contact.DEALS_ALL %}}'
                      f'<h2 style="font-size:22px;margin:28px 0 4px">{label}</h2>'
                      f'<table width="100%" cellpadding="0" cellspacing="0">{rows}</table>'

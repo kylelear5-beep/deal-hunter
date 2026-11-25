@@ -79,6 +79,8 @@ class Settings:
     # Deals emails come only from this address (never Kyle's personal Gmail).
     email_from: str = _str("EMAIL_FROM", "alertsdealhunter@gmail.com")
     email_hour: int = _int("EMAIL_HOUR", 7)          # New York time
+    # Google Sheet web app that passes website sign-ups to Brevo (Deploy > Web app URL).
+    signup_url: str = _str("SIGNUP_URL", "")
     backup_api_key: str = _str("GROQ_API_KEY", "")
     backup_base_url: str = _str("BACKUP_AI_BASE_URL", "https://api.groq.com/openai/v1")
     # Tried in order; each Groq model has its own free daily limit, so the next one takes over
