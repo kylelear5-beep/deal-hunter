@@ -71,6 +71,14 @@ class Settings:
     openai_base_url: str = _str("OPENAI_BASE_URL", "")
     openai_model: str = _str("OPENAI_MODEL", "gpt-4o-mini")
     llm_max_rpm: int = _int("LLM_MAX_RPM", 10)
+    # Backup AI (free Groq by default): reads more posts after Gemini's share is used up.
+    # Switched off when GROQ_API_KEY is empty.
+    backup_api_key: str = _str("GROQ_API_KEY", "")
+    backup_base_url: str = _str("BACKUP_AI_BASE_URL", "https://api.groq.com/openai/v1")
+    backup_model: str = _str("BACKUP_AI_MODEL", "llama-3.1-8b-instant")
+    backup_max_rpm: int = _int("BACKUP_AI_MAX_RPM", 4)
+    backup_max_chars: int = _int("BACKUP_AI_MAX_CHARS", 4000)
+    backup_items_per_run: int = _int("BACKUP_AI_ITEMS_PER_RUN", 8)
     llm_max_chars: int = _int("LLM_MAX_CHARS", 12000)
     # Sovrn Commerce link shown in the site footer (needed for Sovrn's site review)
     sovrn_pick_url: str = _str("SOVRN_PICK_URL", "https://sovrn.co/aur26qj")
