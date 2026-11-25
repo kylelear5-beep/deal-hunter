@@ -20,7 +20,7 @@ from config import settings
 
 log = logging.getLogger("deal-hunter.trypart")
 
-PARTS = ("feeds", "ai", "backup", "verify", "links", "site", "sheet", "recheck", "selfheal")
+PARTS = ("feeds", "ai", "backup", "email", "verify", "links", "site", "sheet", "recheck", "selfheal")
 LIMIT_SECONDS = 8 * 60
 
 
@@ -63,6 +63,20 @@ async def _backup(db, tmp: Path) -> str:
             f"{len(result.deals)} deal(s)")
 
 
+async def _email(db, tmp: Path) -> str:
+    """Set up Brevo (lists + questions) and build today's email without sending it."""
+    import httpx
+    import emailer
+    if not emailer.enabled():
+        raise RuntimeError("BREVO_API_KEY is not set")
+    async with httpx.AsyncClient(timeout=30) as c:
+        ids = await emailer.ensure_setup(c, db)
+    sections = await emailer.gather(db, weekly=False)
+    html_ = emailer.build_html(sections, False, __import__("datetime").datetime.now())
+    n = sum(len(v) for v in sections.values())
+    return f"Brevo ready (lists {ids}); today's email has {n} deals, {len(html_)} characters"
+
+
 async def _verify(db, tmp: Path) -> str:
     from verifier import verify_pending
     stats = await verify_pending(db, total_seconds=90, per_code_seconds=45)
@@ -102,7 +116,7 @@ async def _selfheal(db, tmp: Path) -> str:
     return f"self-protection ran (AI reads per run: {await selfheal.ai_per_run(db)}, feeds ok: {bool(feeds)})"
 
 
-RUNNERS = {"feeds": _feeds, "ai": _ai, "backup": _backup, "verify": _verify, "links": _links, "site": _site,
+RUNNERS = {"feeds": _feeds, "ai": _ai, "backup": _backup, "email": _email, "verify": _verify, "links": _links, "site": _site,
            "sheet": _sheet, "recheck": _recheck, "selfheal": _selfheal}
 
 

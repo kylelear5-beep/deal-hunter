@@ -190,6 +190,12 @@ async def scheduler_tick(db, now_local: datetime | None = None) -> None:
     if now.hour >= settings.digest_hour:
         weekly = now.weekday() == settings.weekly_top_day
         await _once_per(db, f"digest:{day}", lambda: send_digest(db, weekly=weekly))
+    # Deals email: daily every morning, weekly on Sundays (Brevo; off without BREVO_API_KEY)
+    from emailer import enabled as _email_on, send_campaign
+    if _email_on() and now.hour >= settings.email_hour:
+        await _once_per(db, f"email-daily:{day}", lambda: send_campaign(db, weekly=False))
+        if now.weekday() == 6:
+            await _once_per(db, f"email-weekly:{day}", lambda: send_campaign(db, weekly=True))
     # Saturday evening: one "free trials & Amazon perks" post to the Everyday & Home channels
     if now.weekday() == 5 and now.hour >= settings.digest_hour:
         from amazon_perks import send_perks_post
