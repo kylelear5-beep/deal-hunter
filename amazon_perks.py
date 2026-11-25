@@ -10,26 +10,55 @@ import html
 from affiliate import build_affiliate_url
 from alerts import DISCLOSURE
 
-# (emoji, title, who it's for, official Amazon page)
+# Every bounty line from Kyle's Amazon rate plan that has a Home Page link, highest reward first.
+# (emoji, title, who it's for, Home Page link from that same line of the table, bounty $)
+# Lines marked n/a (no Home Page) earn through normal product links already.
 PERKS = [
+    ("🎧", "Audible Premium Plus (yearly)", "A year of audiobooks at a lower monthly cost.",
+     "https://www.amazon.com/hz/audible/mlp/membership/premiumplus/annual", 25),
     ("🎧", "Try Audible free", "Audiobooks and podcasts for the truck, tractor or a long ride.",
-     "https://www.amazon.com/hz/audible/mlp"),
-    ("📦", "Try Amazon Prime free", "Free fast shipping, Prime Video and Prime-only deals.",
-     "https://www.amazon.com/prime"),
-    ("💲", "Prime Access (discounted Prime)",
-     "Lower-price Prime for people who get qualifying government assistance.",
-     "https://amazon.com/qualify"),
-    ("🎓", "Prime for Young Adults", "Discounted Prime for ages 18 to 24.",
-     "https://www.amazon.com/joinyoungadult"),
+     "https://www.amazon.com/hz/audible/mlp", 20),
     ("🏢", "Free Amazon Business account",
      "Business pricing and tax-exempt buying for farms, shops and side businesses.",
-     "https://business.amazon.com"),
-    ("📚", "Try Kindle Unlimited free", "Read and listen to a big library of e-books.",
-     "https://www.amazon.com/kindleunlimited"),
-    ("🎵", "Try Amazon Music Unlimited free", "Ad-free music for the shop or the road.",
-     "https://www.amazon.com/music/unlimited"),
+     "https://business.amazon.com", 15),
+    ("📦", "Try Amazon Prime free", "Free fast shipping, Prime Video and Prime-only deals.",
+     "https://www.amazon.com/prime", 12),
+    ("💲", "Prime Access (discounted Prime)",
+     "Lower-price Prime for people who get qualifying government assistance.",
+     "https://amazon.com/qualify", 12),
+    ("🎓", "Prime for Young Adults", "Discounted Prime for ages 18 to 24.",
+     "https://www.amazon.com/joinyoungadult", 12),
+    ("🎮", "Prime Gaming & Luna", "Free games and cloud gaming with Prime.",
+     "https://amazon.com/playluna", 12),
+    ("🎁", "Give Audible as a gift", "1, 3, 6 or 12 months of audiobooks. Easy last-minute gift.",
+     "https://www.amazon.com/hz/audible/gift-membership-detail", 10),
+    ("🎁", "Give Kindle Unlimited as a gift", "6, 12 or 24 months of e-books to read.",
+     "https://www.amazon.com/gp/kindle/ku/gift_landing", 10),
     ("🛍️", "Amazon Haul", "Amazon's low-price store, with most items under $20.",
-     "https://www.amazon.com/haul/store"),
+     "https://www.amazon.com/haul/store", 4),
+    ("🎁", "Give Prime as a gift", "A 3-month Prime gift membership.",
+     "https://www.amazon.com/gp/prime/pipeline/prime_gifting_landing", 3),
+    ("📚", "Try Kindle Unlimited free", "Read and listen to a big library of e-books.",
+     "https://www.amazon.com/kindleunlimited", 3),
+    ("🎵", "Try Amazon Music Unlimited free", "Ad-free music for the shop or the road.",
+     "https://www.amazon.com/music/unlimited", 3),
+    ("🎵", "Amazon Music Unlimited offers", "Current special offers on Music Unlimited.",
+     "https://www.amazon.com/gp/dmusic/promotions/amazonmusicunlimited", 3),
+    ("🎶", "Prime Music", "Music included with Prime.", "https://www.amazon.com/music/prime", 3),
+    ("⭐", "Prime Exclusive deals", "Deals only for Prime members.",
+     "https://www.amazon.com/primeexclusives", 3),
+    ("📺", "Prime Video channels", "Add channels like Paramount+ to Prime Video.",
+     "https://www.amazon.com/gp/video/storefront/subscription/default", 3),
+    ("📺", "Try Prime Video", "Movies, shows and live sports.",
+     "https://www.amazon.com/gp/video/storefront", 2),
+    ("🍼", "Amazon Baby Registry", "Free registry with a welcome box for eligible members.",
+     "https://www.amazon.com/baby-reg/homepage", 3),
+    ("💍", "Amazon Wedding Registry", "Free registry with perks for the couple.",
+     "https://www.amazon.com/gp/wedding/homepage", 3),
+    ("🛒", "Use EBT/SNAP on Amazon", "Add your EBT card to buy eligible groceries online.",
+     "https://www.amazon.com/snap", 2),
+    ("🔁", "Subscribe & Save", "Save on pet food, groceries and household basics you buy "
+     "often.", "https://www.amazon.com/subscribeandsave", 0.25),
 ]
 
 NOTE = "Free trials are for eligible customers. Check Amazon's page for the current terms."
@@ -37,7 +66,7 @@ NOTE = "Free trials are for eligible customers. Check Amazon's page for the curr
 
 def perk_links() -> list[tuple[str, str, str, str]]:
     """[(emoji, title, blurb, tagged link)]. Links carry the Amazon Store ID when it is set."""
-    return [(em, t, b, build_affiliate_url(url)) for em, t, b, url in PERKS]
+    return [(em, t, b, build_affiliate_url(url)) for em, t, b, url, _ in PERKS]
 
 
 def perks_telegram() -> str:
