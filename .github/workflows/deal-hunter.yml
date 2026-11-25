@@ -42,9 +42,9 @@ jobs:
       - name: Note start time
         run: echo "RUN_STARTED=$(date +%s)" >> "$GITHUB_ENV"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -114,12 +114,13 @@ jobs:
         if: always()
         run: rm -f .env
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+          include-hidden-files: true
 
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
       - name: Tell Kyle if runs keep failing
         if: ${{ !cancelled() }}
