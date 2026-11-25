@@ -27,6 +27,7 @@ jobs:
       BACKUP_DIR: data/backups
       PYTHONUTF8: "1"
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}   # deals email; off if missing
     steps:
       - uses: actions/checkout@v6
 
