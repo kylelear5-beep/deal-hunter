@@ -1,3 +1,2 @@
 # Site-ownership tags added to the homepage <head>. One tag per line; lines starting with # are ignored.
 <meta name='impact-site-verification' value='c24d86da-e5e2-4ab0-ab86-50c5450d193c'>
-<script type="text/javascript" src="http://classic.avantlink.com/affiliate_app_confirm.php?mode=js&authResponse=c679da32826a52b2fc9c1357339c57204f13240a"></script>
