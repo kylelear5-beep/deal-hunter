@@ -142,7 +142,12 @@ def best_link(deal: dict) -> str:
     """Where a shopper should land: the product page (with our affiliate tag) when we know it,
     then the store's search for the item, then the original deal post. Never a homepage."""
     if has_product_link(deal):
-        return deal.get("affiliate_url") or clean_url(deal["merchant_url"])
+        merchant = deal["merchant_url"]
+        host = urlparse(merchant if "//" in merchant else "https://" + merchant).netloc.lower()
+        if settings.amazon_tag and host_matches(host.split(":")[0], "amazon.com"):
+            # Re-tag on every build so deals saved before the tag existed earn too.
+            return build_affiliate_url(merchant, deal.get("deal_hash", ""))
+        return deal.get("affiliate_url") or clean_url(merchant)
     search = store_search(deal)
     if search:
         return search[1]
