@@ -260,6 +260,8 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
                   f'{e(n.emoji)} {e(n.name.replace(" Deals", ""))}</a>' for n in niches)
     nav += (f'<a href="{u("/open-box/")}"{" class=on" if active == "open-box" else ""}>'
             '📦 Open Box</a>')
+    nav += (f'<a href="{u("/free-trials/")}"{" class=on" if active == "free-trials" else ""}>'
+            '🎁 Free trials</a>')
     home_on = ' class=on' if active == "home" else ""
     pick = ""
     if settings.sovrn_pick_url.startswith("https://sovrn.co/"):
@@ -563,6 +565,20 @@ def guides_index_html(niches) -> str:
                 "Buying guides with money-saving tips and the best live deals by category.")
 
 
+def free_trials_html() -> str:
+    from amazon_perks import NOTE, perk_links
+    cards = "".join(
+        f'<div class="card"><div class="store">{e(em)} {e(t)}</div><p>{e(b)}</p>'
+        f'<a class="btn" href="{e(link, quote=True)}" rel="sponsored nofollow" '
+        f'target="_blank">See it on Amazon →</a></div>' for em, t, b, link in perk_links())
+    body = ("<h1>🎁 Free trials &amp; Amazon perks</h1><p class='lead'>Free trials and "
+            "money-saving Amazon programs worth knowing about.</p>"
+            f"<div class='grid'>{cards}</div><p class='meta'>{e(NOTE)}</p>")
+    return page(f"Free trials & Amazon perks | {settings.site_name}", body,
+                "Free Amazon trials and money-saving programs: Prime, Audible, Kindle "
+                "Unlimited, Prime Access, Amazon Business and more.", active="free-trials")
+
+
 def _write(root: Path, rel: str, content: str) -> None:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -652,6 +668,10 @@ async def build_site(db, out_dir: str | None = None) -> int:
         written += 1
     _write(root, "guides/index.html", guides_index_html(niches))
     urls.append("/guides/")
+    written += 1
+
+    _write(root, "free-trials/index.html", free_trials_html())
+    urls.append("/free-trials/")
     written += 1
 
     # Store pages

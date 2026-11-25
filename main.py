@@ -190,6 +190,11 @@ async def scheduler_tick(db, now_local: datetime | None = None) -> None:
     if now.hour >= settings.digest_hour:
         weekly = now.weekday() == settings.weekly_top_day
         await _once_per(db, f"digest:{day}", lambda: send_digest(db, weekly=weekly))
+    # Saturday evening: one "free trials & Amazon perks" post to the Everyday & Home channels
+    if now.weekday() == 5 and now.hour >= settings.digest_hour:
+        from amazon_perks import send_perks_post
+        await _once_per(db, f"perks:{now.isocalendar()[0]}-W{now.isocalendar()[1]}",
+                        send_perks_post)
     if now.weekday() == settings.report_day and now.hour >= settings.report_hour:
         await _once_per(db, f"report:{now.isocalendar()[0]}-W{now.isocalendar()[1]}",
                         lambda: send_owner_report(db))
