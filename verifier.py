@@ -267,11 +267,24 @@ class ShopifyVerifier(BaseVerifier):
 VERIFIERS: list[BaseVerifier] = [ShopifyVerifier()]
 
 
-async def verify_pending(db, dispatcher=None) -> dict[str, int]:
-    """Test unverified codes in the DB, respecting the per-store daily cap."""
-    stats = {"valid": 0, "invalid": 0, "unknown": 0, "unsupported": 0, "deleted": 0}
+PER_CODE_SECONDS = 60          # one code check may take at most a minute
+TOTAL_SECONDS = 4 * 60         # all code checks in one run: at most 4 minutes
+
+
+async def verify_pending(db, dispatcher=None, total_seconds: float = TOTAL_SECONDS,
+                         per_code_seconds: float = PER_CODE_SECONDS) -> dict[str, int]:
+    """Test unverified codes in the DB, respecting the per-store daily cap.
+    A check that freezes is abandoned; its codes stay unchecked and are tried on a later run."""
+    import time
+    stats = {"valid": 0, "invalid": 0, "unknown": 0, "unsupported": 0, "deleted": 0,
+             "timed_out": 0}
+    deadline = time.monotonic() + total_seconds
     grouped = await db.pending_codes_by_domain(settings.verify_max_per_store_per_day)
     for domain, deals in grouped.items():
+        left = deadline - time.monotonic()
+        if left <= 5:
+            log.info("Verifier: out of time for this run; the rest wait for the next run")
+            break
         remaining = settings.verify_max_per_store_per_day - await db.attempts_today(domain)
         if remaining <= 0:
             continue
@@ -285,7 +298,14 @@ async def verify_pending(db, dispatcher=None) -> dict[str, int]:
             await db.mark_status([d["deal_hash"] for d in deals], "unsupported")
             stats["unsupported"] += len(deals)
             continue
-        results = await verifier.test_codes(domain, [d["promo_code"] for d in deals])
+        try:
+            results = await asyncio.wait_for(
+                verifier.test_codes(domain, [d["promo_code"] for d in deals]),
+                timeout=min(per_code_seconds * len(deals), left))
+        except asyncio.TimeoutError:
+            log.warning("Verifier: checking %s took too long; skipped for now", domain)
+            stats["timed_out"] += len(deals)
+            continue
         for deal, res in zip(deals, results):
             await db.log_attempt(deal["deal_hash"], domain, res.result, res.detail)
             if res.result == VALID:

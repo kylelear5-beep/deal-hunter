@@ -334,6 +334,7 @@ async def recheck_saved_deals(db) -> dict:
     return fixed
 
 
+PIPELINE_LIMIT_SECONDS = 15 * 60   # scan + AI + code checks
 RUN_BUDGET_SECONDS = 14 * 60   # the workflow step allows 25 minutes; stay well inside it
 
 
@@ -352,7 +353,13 @@ async def run_actions_once(db, extractor) -> dict:
     except Exception as exc:  # noqa: BLE001 - a cleanup problem must never stop a run
         log.warning("Re-check of saved deals failed: %s", exc)
     try:
-        summary = await run_pipeline(db, make_dispatcher(), extractor)
+        # Hard limit, so the site and posts below always happen inside GitHub's 25 minutes.
+        summary = await asyncio.wait_for(run_pipeline(db, make_dispatcher(), extractor),
+                                         timeout=PIPELINE_LIMIT_SECONDS)
+    except asyncio.TimeoutError:
+        log.error("Scan took longer than %d minutes; stopped it so the site and posts still "
+                  "go out", PIPELINE_LIMIT_SECONDS // 60)
+        await db.record_run(0, 0, 0, 0, error="scan took too long (stopped)")
     except Exception as exc:  # noqa: BLE001 - still post, build the site and run the watchdog
         log.exception("Pipeline run failed: %s", exc)
         await db.record_run(0, 0, 0, 0, error=str(exc)[:300])
