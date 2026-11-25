@@ -149,8 +149,9 @@ class Settings:
     click_tracking: bool = _bool("CLICK_TRACKING", True)
     site_name: str = _str("SITE_NAME", "Deal Hunter")
     site_contact_email: str = _str("SITE_CONTACT_EMAIL", "")
-    # Kyle (Nov 25 2026): no Telegram/Discord/premium links on the website. Channels still post.
-    site_channel_links: bool = _bool("SITE_CHANNEL_LINKS", False)
+    # Kyle (Nov 25 2026): Telegram join buttons yes; Discord links never; premium buttons off.
+    site_telegram_links: bool = _bool("SITE_TELEGRAM_LINKS", True)
+    site_channel_links: bool = _bool("SITE_CHANNEL_LINKS", False)    # premium buttons
     discord_invite_url: str = _str("DISCORD_INVITE_URL", "")      # public invite, NOT a webhook
     cloudflare_analytics_token: str = _str("CLOUDFLARE_ANALYTICS_TOKEN", "")
     goatcounter_site: str = _str("GOATCOUNTER_SITE", "")          # e.g. "farmmotodeals"

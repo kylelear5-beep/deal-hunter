@@ -98,6 +98,8 @@ h1{font-size:30px;line-height:1.2;margin:0 0 6px} h2{font-size:24px;margin:28px 
   border-top:1px solid #eef0f3}
 button.copy{min-height:40px;padding:0 12px;border-radius:10px;border:2px dashed var(--blue);background:#eff6ff;
   color:var(--blue-d);font:800 15px ui-monospace,Consolas,"Courier New",monospace;cursor:pointer}
+button.share{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:700;cursor:pointer}
+.card.flash{outline:4px solid #f59e0b;outline-offset:2px}
 button.save{min-height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:#fff;
   font-weight:800;font-size:14px;cursor:pointer;color:var(--text)}
 button.save.on{background:var(--amber-bg);border-color:#f59e0b;color:var(--amber)}
@@ -168,6 +170,11 @@ document.addEventListener('click',function(ev){
  var c=ev.target.closest('button.copy');if(c){var lab=c.dataset.label||c.textContent;c.dataset.label=lab;
   navigator.clipboard.writeText(c.dataset.code).then(function(){c.textContent='Copied \\u2713';
   setTimeout(function(){c.textContent=lab},1500)});return}
+ var sh=ev.target.closest('button.share');if(sh){var url=new URL(sh.dataset.url,location.href).href,
+  txt=sh.dataset.share+' - found on Deal Hunter';
+  if(navigator.share){navigator.share({title:'Deal Hunter',text:txt,url:url}).catch(function(){});return}
+  navigator.clipboard.writeText(txt+' '+url).then(function(){sh.textContent='Link copied \\u2713';
+  setTimeout(function(){sh.textContent='\\u2197 Share'},1800)});return}
  var s=ev.target.closest('button.save');if(s){var cd=s.closest('.card').dataset;
   if(watch[cd.hash])delete watch[cd.hash];else watch[cd.hash]={t:cd.title,s:cd.store,v:cd.value,c:cd.code,l:cd.link};
   keep();paint();run();return}
@@ -175,6 +182,8 @@ document.addEventListener('click',function(ev){
  if(ev.target.closest('#wl-open')){if(wl){paint();wl.hidden=false}return}
  if(ev.target.closest('#wl-close')||ev.target===wl)closeW()});
 paint();run();
+if(location.hash.indexOf('#d-')===0){var t=document.getElementById(location.hash.slice(1));
+ if(t){t.classList.add('flash');t.scrollIntoView({block:'center'})}}
 })();
 </script>"""
 
@@ -226,7 +235,12 @@ def card(deal: dict) -> str:
              "data-title": title, "data-value": deal["discount_value"], "data-link": link}
     attr = " ".join(f'{k}="{e(v, quote=True)}"' for k, v in attrs.items())
     store_url = u("/store/" + slug(deal["store_domain"]) + ".html")
-    parts = [f'<article class="card{" verified" if verified else ""}" {attr}>',
+    anchor = "d-" + deal["deal_hash"][:12]
+    share_rel = "/store/" + slug(deal["store_domain"]) + ".html#" + anchor
+    share_url = (settings.public_base_url.rstrip("/") + share_rel) if settings.public_base_url \
+        else u(share_rel)
+    share_text = f"{deal['store_name']}: {title} ({deal['discount_value']})"
+    parts = [f'<article id="{anchor}" class="card{" verified" if verified else ""}" {attr}>',
              '<div class="card-top">',
              f'<a class="chip store" href="{store_url}">{e(deal["store_name"])}</a>',
              f'<span class="chip type">{e(label.title())}</span>',
@@ -247,6 +261,8 @@ def card(deal: dict) -> str:
     if code:
         parts.append(f'<button class="copy" data-code="{e(code, quote=True)}" '
                      f'title="Copy code">{e(code)} ⧉</button>')
+    parts.append(f'<button class="share" type="button" data-url="{e(share_url, quote=True)}" '
+                 f'data-share="{e(share_text, quote=True)}" title="Share this deal">↗ Share</button>')
     parts.append('<button class="save" type="button">☆ Save</button>'
                  f'<a class="btn" href="{e(link, quote=True)}" rel="nofollow sponsored" '
                  f'target="_blank">{"Search " + e(search[0]) if search else "Get deal"} ↗</a>'
@@ -272,7 +288,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
         pick = (f' · <a href="{e(settings.sovrn_pick_url, quote=True)}" rel="sponsored nofollow" '
                 'target="_blank">Today\'s pick: DeWalt drills at Walmart</a>')
     share = ""
-    if settings.site_channel_links and settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
+    if False:  # no Discord links on the website (Kyle's rule)
         share = (f'<a class="hbtn green" href="{e(settings.discord_invite_url, quote=True)}" '
                  'target="_blank" rel="noopener">＋<span class="t"> Share a deal</span></a>')
     search_box = (f'<label class="search">🔍<input id="q" type="search" data-home="{u("/")}" '
@@ -334,21 +350,22 @@ def analytics_html() -> str:
 
 
 def join_banner(niches: list) -> str:
-    """Join buttons for PUBLIC channels only (@name). Webhook links are never shown."""
-    if not settings.site_channel_links:
+    """Telegram join buttons (free channels). Never Discord (Kyle's rule)."""
+    if not settings.site_telegram_links:
         return ""
+    from tginvite import LINKS
     links = []
     single = len(niches) == 1
     for n in niches:
-        tg = n.telegram_chat("free")
-        if tg.startswith("@"):
+        link = LINKS.get(n.id, "")
+        if not link:
+            tg = n.telegram_chat("free")
+            link = f"https://t.me/{tg[1:]}" if tg.startswith("@") else ""
+        if link:
             text = (f"Join {e(n.emoji)} {e(n.name)} on Telegram" if single
                     else f"{e(n.emoji)} {e(n.name.replace(' Deals', ''))}")
-            links.append(f'<a class="join-btn" href="https://t.me/{e(tg[1:], quote=True)}" '
+            links.append(f'<a class="join-btn" href="{e(link, quote=True)}" '
                          f'target="_blank" rel="noopener">{text}</a>')
-    if settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
-        links.append(f'<a class="join-btn" href="{e(settings.discord_invite_url, quote=True)}" '
-                     'target="_blank" rel="noopener">Join our Discord</a>')
     if not links:
         return ""
     label = "" if single else '<span class="join-label">Free alerts on Telegram:</span>'
@@ -609,6 +626,12 @@ async def build_site(db, out_dir: str | None = None) -> int:
     root = Path(out_dir or settings.site_dir)
     root.mkdir(parents=True, exist_ok=True)
     niches = load_niches()
+    if settings.site_telegram_links:
+        try:
+            import tginvite
+            await tginvite.ensure(db, niches)
+        except Exception as exc:  # noqa: BLE001 - join buttons must never stop the site
+            log.warning("Telegram invite links skipped: %s", exc)
     written = 0
     urls = ["/"]
 
