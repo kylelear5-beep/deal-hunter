@@ -243,11 +243,13 @@ async def _sender(client) -> dict:
     want = settings.email_from.strip().lower()
     r = await client.get(f"{API}/senders", headers=_headers())
     r.raise_for_status()
-    for s in r.json().get("senders", []):
+    found = r.json().get("senders", [])
+    for s in found:
         if s.get("email", "").lower() == want and s.get("active", True):
             return {"name": settings.email_from_name, "email": s["email"]}
+    seen = ", ".join(f"{s.get('email')} (active={s.get('active')})" for s in found) or "none"
     raise RuntimeError(f"{want} is not a verified Brevo sender yet "
-                       "(Brevo > Senders > Add a sender, then type the code Brevo emails)")
+                       f"(Brevo > Senders > Add a sender, then type the code Brevo emails). Brevo has: {seen}")
 
 
 async def send_campaign(db, weekly: bool, client=None) -> dict:
