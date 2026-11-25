@@ -74,7 +74,10 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
     except Exception as exc:  # noqa: BLE001
         log.warning("AI budget tuning failed: %s", exc)
         per_run = settings.max_ai_items_per_run
-    todo = candidates[:per_run]
+    extra = settings.backup_items_per_run if getattr(extractor, "has_backup", False) else 0
+    if hasattr(extractor, "primary_budget"):
+        extractor.primary_budget = per_run   # Gemini's share; the backup AI reads the extra
+    todo = candidates[:per_run + extra]
     waiting = len(candidates) - len(todo)
     log.info("Scraped %d items: %d new, %d for the AI now%s", len(items), len(fresh), len(todo),
              f", {waiting} wait for the next run" if waiting else "")
@@ -111,6 +114,9 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
         _, finished = await parse_items(todo, extractor, on_item=save_item)
         if getattr(extractor, "quota_out", False):
             await selfheal.note_quota_out(db)
+        if getattr(extractor, "has_backup", False):
+            log.info("AI reads this run: main %d, backup %d%s", extractor.primary_used,
+                     extractor.backup_used, " (backup limit reached)" if extractor.backup_out else "")
     finally:
         await link_client.aclose()
     llm_failed = len(todo) - len(finished)

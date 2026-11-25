@@ -294,6 +294,14 @@ class LLMExtractor:
     """Gemini (google-genai) by default; LLM_PROVIDER=openai for any OpenAI-compatible API
     (OpenAI, Ollama, LM Studio, OpenRouter... via OPENAI_BASE_URL)."""
 
+    # Safe defaults (also used if an object is built without __init__)
+    primary_budget: Optional[int] = None
+    primary_used = 0
+    backup = None
+    backup_hits = 0
+    backup_out = False
+    backup_used = 0
+
     def __init__(self):
         self.provider = settings.llm_provider
         self.limiter = RateLimiter(settings.llm_max_rpm)
@@ -310,6 +318,23 @@ class LLMExtractor:
                                        base_url=settings.openai_base_url or None)
         else:
             raise RuntimeError(f"Unknown LLM_PROVIDER '{self.provider}' (use gemini or openai)")
+        # Main AI reads at most this many posts per run (None = no cap); main.py sets it.
+        self.primary_budget: Optional[int] = None
+        self.primary_used = 0
+        # Backup AI (any OpenAI-compatible API, free Groq by default)
+        self.backup = None
+        self.backup_limiter = RateLimiter(settings.backup_max_rpm)
+        self.backup_hits = 0
+        self.backup_out = False
+        self.backup_used = 0
+        if settings.backup_api_key:
+            from openai import AsyncOpenAI
+            self.backup = AsyncOpenAI(api_key=settings.backup_api_key,
+                                      base_url=settings.backup_base_url or None)
+
+    @property
+    def has_backup(self) -> bool:
+        return self.backup is not None
 
     def _system(self) -> str:
         return SYSTEM_PROMPT.format(today=date.today().isoformat())
@@ -339,7 +364,61 @@ class LLMExtractor:
         )
         return resp.choices[0].message.content or '{"deals": []}'
 
+    async def _backup_call(self, text: str) -> str:
+        schema = json.dumps(ExtractionResult.model_json_schema())
+        resp = await self.backup.chat.completions.create(
+            model=settings.backup_model,
+            temperature=0,
+            messages=[{"role": "system", "content": self._system()
+                       + "\nAnswer with ONLY a JSON object that matches this JSON schema:\n"
+                       + schema},
+                      {"role": "user", "content": text}],
+            response_format={"type": "json_object"},
+        )
+        return resp.choices[0].message.content or '{"deals": []}'
+
+    def _primary_free(self) -> bool:
+        if self.quota_out:
+            return False
+        return self.primary_budget is None or self.primary_used < self.primary_budget
+
     async def extract(self, text: str) -> ExtractionResult:
+        """Main AI first; once its share is used (or its quota runs out), the backup AI."""
+        if self._primary_free():
+            self.primary_used += 1
+            try:
+                return await self._extract_primary(text)
+            except AIQuotaUsedUp:
+                if not self.has_backup or self.backup_out:
+                    raise
+        if self.has_backup and not self.backup_out:
+            return await self._extract_backup(text)
+        raise AIQuotaUsedUp("no AI reads left this run")
+
+    async def _extract_backup(self, text: str) -> ExtractionResult:
+        text = text[: settings.backup_max_chars]
+        async for attempt in AsyncRetrying(stop=stop_after_attempt(2),
+                                           wait=wait_exponential_jitter(initial=4, max=30),
+                                           retry=retry_if_not_exception_type(AIQuotaUsedUp),
+                                           reraise=True):
+            with attempt:
+                await self.backup_limiter.wait()
+                try:
+                    raw = await self._backup_call(text)
+                except Exception as exc:  # noqa: BLE001
+                    if _is_quota_error(exc):
+                        self.backup_hits += 1
+                        if self.backup_hits >= 2 and not self.backup_out:
+                            self.backup_out = True
+                            log.warning("Backup AI free limit reached; the rest wait.")
+                        raise AIQuotaUsedUp(str(exc)[:200]) from exc
+                    raise
+                self.backup_hits = 0
+                self.backup_used += 1
+                return ExtractionResult.model_validate(json.loads(raw))
+        raise RuntimeError("unreachable")  # pragma: no cover
+
+    async def _extract_primary(self, text: str) -> ExtractionResult:
         text = text[: settings.llm_max_chars]
         if self.quota_out:
             raise AIQuotaUsedUp("AI quota used up earlier this run")
