@@ -172,3 +172,13 @@ async def test_backfill_respects_deadline(db):
                               source_url="https://www.dealnews.com/x/22408374.html",
                               created_at=datetime.now(timezone.utc), summary="Mic"))
     assert await lr.backfill_store_links(db, deadline=time.monotonic() - 1) == {"tried": 0, "found": 0}
+
+
+def test_old_amazon_deal_gets_current_tag(monkeypatch):
+    from config import settings
+    import affiliate
+    monkeypatch.setattr(settings, "amazon_tag", "dealhunte0120-20")
+    deal = {"merchant_url": "https://www.amazon.com/dp/B0TEST1234",
+            "affiliate_url": "https://www.amazon.com/dp/B0TEST1234", "deal_hash": "abc",
+            "store_domain": "amazon.com", "summary": "Test widget deal for you"}
+    assert "tag=dealhunte0120-20" in affiliate.best_link(deal)
