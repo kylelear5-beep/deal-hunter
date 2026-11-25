@@ -38,3 +38,10 @@ def test_avantlink_confirm_script_only_exact_form(tmp_path, monkeypatch):
            r'affiliate_app_confirm\.php\?mode=js&(?:amp;)?authResponse=[0-9a-f]{20,64}"></script>')
     assert _re.fullmatch(pat, good)
     assert not _re.fullmatch(pat, good.replace("classic.avantlink.com", "evil.com"))
+
+
+def test_hero_video_is_silent_plays_once_and_has_deals_button():
+    h = sitegen.hero_video()
+    assert "muted" in h and "playsinline" in h and "loop" not in h
+    assert "Let's get those deals!" in h and 'href="#deals"' in h
+    assert "prefers-reduced-motion" in sitegen.HERO_JS and "saveData" in sitegen.HERO_JS

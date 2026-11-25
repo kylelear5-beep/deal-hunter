@@ -58,6 +58,18 @@ h1{font-size:30px;line-height:1.2;margin:0 0 6px} h2{font-size:24px;margin:28px 
 .lead{color:var(--muted);font-size:18px;margin:0 0 14px}
 .hero{background:linear-gradient(135deg,#eff6ff,#eef2ff 55%,#fffbeb);border:1px solid #bfdbfe;
   border-radius:18px;padding:20px;margin-bottom:16px}
+.hero-row{display:flex;gap:18px;align-items:flex-start}.hero-text{flex:1;min-width:0}
+.hero-vid{flex:none;width:340px;text-align:center}
+.hero-vid .frame{position:relative;border-radius:14px;overflow:hidden;border:2px solid #1d4ed8;background:#111}
+.hero-vid video{display:block;width:100%;height:auto;aspect-ratio:3/2}
+.hero-vid .tag{position:absolute;left:8px;top:8px;background:rgba(17,24,39,.85);color:#fff;font-weight:800;
+  font-size:14px;padding:4px 10px;border-radius:999px}
+.hero-vid .replay{position:absolute;right:8px;bottom:8px;min-height:36px;padding:0 12px;border-radius:999px;
+  border:0;background:rgba(17,24,39,.85);color:#fff;font-weight:800;font-size:14px;cursor:pointer}
+.hero-vid .go{display:block;margin-top:10px;min-height:48px;line-height:48px;border-radius:12px;
+  background:#f59e0b;color:#111827;font-weight:900;font-size:18px;text-decoration:none}
+.hero-vid .go:hover{background:#d97706}
+@media (max-width:760px){.hero-row{flex-direction:column}.hero-vid{width:100%;max-width:420px;margin:0 auto}}
 .stats{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
 .stat{background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-weight:700;
   font-size:14px}
@@ -300,6 +312,32 @@ def signup_box() -> str:
             '</section>')
 
 
+def hero_video() -> str:
+    """Short silent clip from the Deal Hunter video. Plays once (no sound), then stops on its
+    last frame. Skipped for people who ask for less motion or save data."""
+    if not (Path(__file__).resolve().parent / "static" / "hero.mp4").is_file():
+        return ""
+    return ('<div class="hero-vid"><div class="frame">'
+            f'<video id="hv" muted playsinline preload="none" poster="{u("/hero-poster.jpg")}" '
+            f'data-src="{u("/hero.mp4")}" aria-label="Short clip: a happy Deal Hunter user and his dog"></video>'
+            '<span class="tag">Me using Deal Hunter 😎</span>'
+            '<button class="replay" type="button" hidden aria-label="Play the clip again">↻ Again</button></div>'
+            '<a class="go" href="#deals">Let\'s get those deals! ↓</a></div>')
+
+
+HERO_JS = """<script>
+(function(){var v=document.getElementById('hv');if(!v)return;var b=v.parentNode.querySelector('.replay');
+var calm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches,
+ slow=navigator.connection&&navigator.connection.saveData;
+function play(){if(!v.src)v.src=v.dataset.src;v.currentTime=0;b.hidden=true;var p=v.play();
+ if(p&&p.catch)p.catch(function(){b.hidden=false})}
+v.addEventListener('ended',function(){b.hidden=false});b.addEventListener('click',play);
+if(calm||slow){b.hidden=false;return}
+if('IntersectionObserver' in window){var io=new IntersectionObserver(function(e){if(e[0].isIntersecting){
+ io.disconnect();play()}},{threshold:.5});io.observe(v)}else play()})();
+</script>"""
+
+
 def my_deals_section() -> str:
     """'Your deals': filled in the browser from the visitor's saved picks. Best-paying first."""
     from amazon_perks import perk_links
@@ -434,7 +472,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 <footer><div class="wrap">{e(DISCLOSURE)} ·
 <a href="{u("/guides/")}">Buying guides</a> · <a href="{u("/stores/")}">All stores</a> · <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>{pick}
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
-</div></footer>{SITE_JS}{PICKS_JS}</body></html>"""
+</div></footer>{SITE_JS}{PICKS_JS}{HERO_JS if 'id="hv"' in body else ""}</body></html>"""
 
 
 def event_banner() -> str:
@@ -800,14 +838,16 @@ async def build_site(db, out_dir: str | None = None) -> int:
         f'<span>{e(n.name.replace(" Deals", ""))}<small>{len(by_niche.get(n.id, []))} deals</small>'
         "</span></a>" for n in niches)
     premiums = "".join(premium_button(n) for n in niches)
-    body = (f'<section class="hero"><h1>Today\'s best deals</h1>'
+    body = (f'<section class="hero"><div class="hero-row"><div class="hero-text">'
+            f'<h1>Today\'s best deals</h1>'
             f"<p class='lead'>Coupon codes, freebies and price drops, found automatically and "
             f"updated every 30 minutes.</p>"
             f'<div class="stats"><span class="stat">{len(home_deals)} live deals</span>'
             f'<span class="stat">{n_codes} promo codes</span><span class="stat">{n_stores} stores</span></div>'
-            f'{join_banner(niches)}<div class="tiles">{tiles}</div></section>{premiums}'
+            f'{join_banner(niches)}</div>{hero_video()}</div>'
+            f'<div class="tiles">{tiles}</div></section>{premiums}'
             f"{my_deals_section()}{signup_box()}"
-            f"{filter_bar(len(home_deals), niches)}{deal_grid(home_deals)}")
+            f'<div id="deals"></div>{filter_bar(len(home_deals), niches)}{deal_grid(home_deals)}')
     _write(root, "index.html", page(f"{settings.site_name}: today's best deals, coupon codes & freebies",
                                     body, "Live coupon codes, freebies and price drops for farm, "
                                     "motorcycle, tools, auto, electronics and more. Updated every "
