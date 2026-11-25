@@ -96,8 +96,25 @@ function refresh() {
     var cell = findFeedCell_(sh);
     if (cell) cell.setFormula('=IMPORTDATA("' + SITE + FEEDS[tab] + '?sheet=' + stamp + '")');
   });
+  keepScheduleAlive_();
   writeLastRun_();
   toast_('Refreshed.');
+}
+
+// If the 30-minute chain ever stops (no run for 75+ minutes, nothing waiting, not paused),
+// start a run. Runs every 30 minutes with refresh(), even when the Sheet is closed.
+function keepScheduleAlive_() {
+  if (!key_()) return;
+  var wf = gh_('get', '/actions/workflows/' + WORKFLOW);
+  if (wf.code !== 200 || wf.json.state !== 'active') return;   // paused on purpose
+  var res = gh_('get', '/actions/workflows/' + WORKFLOW + '/runs?per_page=5');
+  if (res.code !== 200) return;
+  var runs = res.json.workflow_runs || [];
+  var busy = runs.some(function (r) { return r.status !== 'completed'; });
+  var newest = runs.length ? new Date(runs[0].created_at) : new Date(0);
+  if (busy || (new Date() - newest) < 75 * 60000) return;
+  var go = gh_('post', '/actions/workflows/' + WORKFLOW + '/dispatches', { ref: 'main' });
+  Logger.log('Schedule had stopped; started a run (GitHub said ' + go.code + ')');
 }
 
 function openSite() { open_(SITE); }
