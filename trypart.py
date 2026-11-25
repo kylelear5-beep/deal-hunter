@@ -20,7 +20,7 @@ from config import settings
 
 log = logging.getLogger("deal-hunter.trypart")
 
-PARTS = ("feeds", "ai", "verify", "links", "site", "sheet", "recheck", "selfheal")
+PARTS = ("feeds", "ai", "backup", "verify", "links", "site", "sheet", "recheck", "selfheal")
 LIMIT_SECONDS = 8 * 60
 
 
@@ -46,6 +46,21 @@ async def _ai(db, tmp: Path) -> str:
     except AIQuotaUsedUp:
         return "AI free quota is used up right now (not a code problem) - treated as OK"
     return f"AI read the sample and found {len(result.deals)} deal(s)"
+
+
+async def _backup(db, tmp: Path) -> str:
+    """Read one sample with the backup AI only (main AI skipped)."""
+    from parser import LLMExtractor
+    ex = LLMExtractor()
+    if not ex.has_backup:
+        raise RuntimeError("GROQ_API_KEY is not set, so there is no backup AI")
+    ex.primary_budget = 0
+    sample = ("50% off DeWalt 20V drill kit at Home Depot with code SAVE50\n"
+              "Link: https://www.homedepot.com/p/123")
+    result = await ex.extract(sample)
+    from config import settings
+    return (f"Backup AI ({settings.backup_models[ex.backup_model_i]}) read the sample and found "
+            f"{len(result.deals)} deal(s)")
 
 
 async def _verify(db, tmp: Path) -> str:
@@ -87,7 +102,7 @@ async def _selfheal(db, tmp: Path) -> str:
     return f"self-protection ran (AI reads per run: {await selfheal.ai_per_run(db)}, feeds ok: {bool(feeds)})"
 
 
-RUNNERS = {"feeds": _feeds, "ai": _ai, "verify": _verify, "links": _links, "site": _site,
+RUNNERS = {"feeds": _feeds, "ai": _ai, "backup": _backup, "verify": _verify, "links": _links, "site": _site,
            "sheet": _sheet, "recheck": _recheck, "selfheal": _selfheal}
 
 

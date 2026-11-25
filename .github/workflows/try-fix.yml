@@ -3,7 +3,7 @@
 # check and the "tests" check both pass.
 #
 # The part comes from the pull request title, e.g. "Auto-fix [part: verify]: ...".
-# Parts: feeds, ai, verify, links, site, sheet, recheck, selfheal (default: site).
+# Parts: feeds, ai, backup, verify, links, site, sheet, recheck, selfheal (default: site).
 name: try-fix
 
 on:
@@ -26,6 +26,7 @@ jobs:
       DB_PATH: data/deals.db
       BACKUP_DIR: data/backups
       PYTHONUTF8: "1"
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
     steps:
       - uses: actions/checkout@v6
 
