@@ -26,3 +26,11 @@ def test_cards_carry_payout_rank():
          "discount_value": "40% off", "summary": "Drill", "created_at": "2026-11-25T10:00:00+00:00"}
     assert 'data-pay="' in sitegen.card(d)
     assert "dh_picks_v1" in sitegen.PICKS_JS and "dataset.pay" in sitegen.PICKS_JS
+
+
+def test_avantlink_confirm_script_only_exact_form(tmp_path, monkeypatch):
+    import re
+    good = ('<script type="text/javascript" src="http://classic.avantlink.com/affiliate_app_confirm.php'
+            '?mode=js&authResponse=c679da32826a52b2fc9c1357339c57204f13240a"></script>')
+    assert good in sitegen.verification_meta()
+    assert "evil.com" not in sitegen.verification_meta()
