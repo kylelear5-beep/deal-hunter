@@ -609,3 +609,11 @@ async def test_site_has_no_channel_links(db, channels, tmp_path, monkeypatch):
     for f in tmp_path.rglob("*.html"):
         text = f.read_text(encoding="utf-8").lower()
         assert "t.me/" not in text and "discord.gg" not in text, f.name
+
+
+async def test_deal_share_button(db, channels, tmp_path):
+    await db.insert_deal(make("tractorsupply.com", "$60 off", summary="DeWalt chainsaw"))
+    await sitegen.build_site(db, str(tmp_path))
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    assert 'class="share"' in html and "navigator.share" in html
+    assert 'data-url="' in html and '.html#d-' in html
