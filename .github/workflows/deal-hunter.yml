@@ -39,6 +39,7 @@ jobs:
       MAX_AI_ITEMS_PER_RUN: "10"   # free Gemini limit is 500 a day; 48 runs x 10 = 480
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}   # backup AI (free); off if the secret is missing
       BACKUP_AI_ITEMS_PER_RUN: "8"
+      AMAZON_ASSOCIATE_TAG: dealhunte0120-20   # Kyle's Amazon Associates Store ID (public, shows in every link)
       ASTRO_FREE_DISCORD: ${{ secrets.ASTRO_FREE_DISCORD }}     # Astro & Optics channels; off if missing
       ASTRO_FREE_TELEGRAM: ${{ secrets.ASTRO_FREE_TELEGRAM }}
       PYTHONUTF8: "1"
