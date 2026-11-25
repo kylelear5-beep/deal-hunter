@@ -162,6 +162,8 @@ def plain_url_for_extension(deal: dict) -> str:
     domain = (deal.get("store_domain") or "").lower()
     if not has_product_link(deal):
         return best_link(deal)
-    if any(host_matches(domain, d) for d in settings.affiliate_skip_in_extension):
+    # Amazon never allows Associates links inside browser add-ons, so Amazon is always plain.
+    skip = set(settings.affiliate_skip_in_extension) | {"amazon.com"}
+    if any(host_matches(domain, d) for d in skip):
         return clean_url(deal["merchant_url"])
     return deal.get("affiliate_url") or ""

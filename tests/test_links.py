@@ -182,3 +182,13 @@ def test_old_amazon_deal_gets_current_tag(monkeypatch):
             "affiliate_url": "https://www.amazon.com/dp/B0TEST1234", "deal_hash": "abc",
             "store_domain": "amazon.com", "summary": "Test widget deal for you"}
     assert "tag=dealhunte0120-20" in affiliate.best_link(deal)
+
+
+def test_extension_amazon_links_are_always_plain(monkeypatch):
+    from config import settings
+    import affiliate
+    monkeypatch.setattr(settings, "amazon_tag", "dealhunte0120-20")
+    monkeypatch.setattr(settings, "affiliate_skip_in_extension", [])
+    deal = {"store_domain": "amazon.com", "merchant_url": "https://www.amazon.com/dp/B0TEST1234",
+            "affiliate_url": "https://www.amazon.com/dp/B0TEST1234?tag=dealhunte0120-20"}
+    assert "tag=" not in affiliate.plain_url_for_extension(deal)
