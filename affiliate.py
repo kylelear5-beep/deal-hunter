@@ -170,10 +170,17 @@ def plain_url_for_extension(deal: dict) -> str:
 
 
 def retag_amazon(text: str, channel: str) -> str:
-    """Swap our main Amazon tag for the channel's own tracking ID ('web', 'telegram', 'email').
+    """Mark links with the channel they were shown in ('web', 'telegram', 'email'):
+    Amazon gets the channel's own tracking ID, eBay gets the channel in front of its customid
+    (e.g. customid=web-<deal>), so both reports show where each sale came from.
     Works on a single link or a whole page/message. Leaves everything else alone."""
+    if not text:
+        return text
     main = settings.amazon_tag
     new = getattr(settings, f"amazon_tag_{channel}", "") or ""
-    if not text or not main or not new or new == main:
-        return text
-    return text.replace(f"tag={main}", f"tag={new}")
+    if main and new and new != main:
+        text = text.replace(f"tag={main}", f"tag={new}")
+    if settings.ebay_campid and "customid=" in text:
+        import re
+        text = re.sub(r"customid=(?!(?:web|telegram|email)-)", f"customid={channel}-", text)
+    return text
