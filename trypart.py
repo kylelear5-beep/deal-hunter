@@ -71,10 +71,14 @@ async def _email(db, tmp: Path) -> str:
         raise RuntimeError("BREVO_API_KEY is not set")
     async with httpx.AsyncClient(timeout=30) as c:
         ids = await emailer.ensure_setup(c, db)
+        try:
+            sender = (await emailer._sender(c))["email"] + " verified"
+        except RuntimeError as e:
+            sender = f"SENDER NOT READY: {e}"
     sections = await emailer.gather(db, weekly=False)
     html_ = emailer.build_html(sections, False, __import__("datetime").datetime.now())
     n = sum(len(v) for v in sections.values())
-    return f"Brevo ready (lists {ids}); today's email has {n} deals, {len(html_)} characters"
+    return f"Brevo ready (lists {ids}); sender {sender}; today's email has {n} deals, {len(html_)} characters"
 
 
 async def _verify(db, tmp: Path) -> str:
