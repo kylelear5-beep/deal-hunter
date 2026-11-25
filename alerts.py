@@ -216,3 +216,41 @@ class AlertDispatcher:
         if sent:
             log.info("Alerted %s on %s", deal["store_name"], ", ".join(sent))
         return sent
+
+
+# ---------------------------------------------------------------- Amazon price rule
+# Amazon's Associates rules: a price for an Amazon product may only be shown if it is fresh
+# (we treat that as found in the last 24 hours). After that we hide the dollar amounts and
+# send people to Amazon for today's price. Other stores are not affected.
+AMAZON_PRICE_HOURS = 24
+STALE_AMAZON_TEXT = "See today's price on Amazon"
+_PRICE = re.compile(r"\(?\b(?:was|reg\.?|list|orig\.?)?\s*\$\s?\d[\d,]*(?:\.\d{1,2})?\)?", re.I)
+
+
+def _is_amazon(deal: dict) -> bool:
+    d = (deal.get("store_domain") or "").lower()
+    return d == "amazon.com" or d.endswith(".amazon.com")
+
+
+def price_safe(deal: dict, now=None) -> dict:
+    """The deal as it may be shown: Amazon prices older than 24 hours are removed."""
+    from datetime import datetime, timedelta, timezone
+    if not _is_amazon(deal):
+        return deal
+    try:
+        made = datetime.fromisoformat(str(deal.get("created_at")).replace("Z", "+00:00"))
+        if made.tzinfo is None:
+            made = made.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        made = None
+    now = now or datetime.now(timezone.utc)
+    if made is not None and now - made < timedelta(hours=AMAZON_PRICE_HOURS):
+        return deal
+    out = dict(deal)
+    out["discount_value"] = STALE_AMAZON_TEXT
+    if out.get("summary"):
+        cleaned = _PRICE.sub("", out["summary"])
+        cleaned = re.sub(r"\s+([,.;:)])", r"\1", re.sub(r"\s{2,}", " ", cleaned)).strip(" -·:,")
+        out["summary"] = cleaned or out["summary"].split("$")[0].strip(" -·:,")
+    return out
+

@@ -16,7 +16,7 @@ from urllib.parse import quote
 
 import httpx
 
-from alerts import CATEGORY_STYLE, DISCLOSURE, deal_label, value_score
+from alerts import CATEGORY_STYLE, DISCLOSURE, deal_label, price_safe, value_score
 from affiliate import best_link
 from config import settings
 from niches import Niche, TIERS, get_niche, load_niches
@@ -78,6 +78,7 @@ def _title(deal: dict) -> str:
 
 def telegram_deal_text(deal: dict, niche: Niche, tier: str, kind: str = "telegram") -> str:
     e = html.escape
+    deal = price_safe(deal)
     link = tracked_link(deal, f"{niche.id}-{tier}-{kind}")
     lines = [f"<b>{e(_title(deal))}</b>"]
     if deal.get("summary"):
@@ -113,6 +114,7 @@ def discord_deal_payload(deal: dict, niche: Niche, tier: str, teaser: bool = Fal
             "description": "Premium members got it instantly. These usually die fast.",
             "url": niche.premium_url, "color": color,
             "fields": [{"name": "Premium", "value": f"[Join here]({niche.premium_url})"}]}]}
+    deal = price_safe(deal)
     link = tracked_link(deal, f"{niche.id}-{tier}-discord")
     desc = [deal.get("summary") or "", f"**{deal['discount_value']}**"]
     if deal.get("promo_code"):
@@ -133,6 +135,7 @@ def digest_text(niche: Niche, deals: list[dict], heading: str) -> str:
     e = html.escape
     lines = [f"<b>{e(niche.emoji)} {e(heading)}</b>", ""]
     for i, d in enumerate(deals, 1):
+        d = price_safe(d)
         link = tracked_link(d, f"{niche.id}-digest")
         what = d.get("summary") or d["discount_value"]
         code = f" · code <code>{e(d['promo_code'])}</code>" if d.get("promo_code") else ""
@@ -148,6 +151,7 @@ def digest_text(niche: Niche, deals: list[dict], heading: str) -> str:
 def digest_discord(niche: Niche, deals: list[dict], heading: str) -> dict:
     rows = []
     for i, d in enumerate(deals, 1):
+        d = price_safe(d)
         link = tracked_link(d, f"{niche.id}-digest")
         code = f" · `{d['promo_code']}`" if d.get("promo_code") else ""
         rows.append(f"{i}. [{d['store_name']}]({link}): {d.get('summary') or ''} "
