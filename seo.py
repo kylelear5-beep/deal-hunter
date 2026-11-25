@@ -76,8 +76,8 @@ def intro(name: str, s: dict, today: datetime) -> str:
     day = today.strftime("%B %-d, %Y")
     if not s["deals"]:
         return (f"There are no working {name} coupon codes or sales on our list right now. "
-                f"Deal Hunter checks for new {name} deals every 30 minutes, so check back soon "
-                f"or join our free alerts. Updated {day}.")
+                f"Deal Hunter checks for new {name} deals every 30 minutes, so check back soon. "
+                f"Updated {day}.")
     parts = [f"We found {s['deals']} live {name} deal{'s' if s['deals'] != 1 else ''}"]
     if s["codes"]:
         parts.append(f"including {s['codes']} promo code{'s' if s['codes'] != 1 else ''}")

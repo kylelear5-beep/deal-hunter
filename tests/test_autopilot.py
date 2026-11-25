@@ -190,7 +190,8 @@ async def test_digest_skips_price_errors(db, channels):
 
 
 # -- website ---------------------------------------------------------------------
-async def test_build_site(db, channels, tmp_path):
+async def test_build_site(db, channels, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "site_channel_links", True)
     await db.insert_deal(make("tractorsupply.com", "20% off <script>", summary="Feed"))
     await db.insert_deal(make("revzilla.com", "30% off", summary="Shoei helmet"))
     await db.insert_deal(make("tractorsupply.com", "$1 tractor (was $2000)", Category.PRICE_ERROR, None))
@@ -437,6 +438,7 @@ async def test_sheet_files_are_correct_and_hold_no_secrets(db, channels, tmp_pat
 
 
 async def test_site_join_buttons_filters_and_counter(db, channels, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "site_channel_links", True)
     monkeypatch.setattr(settings, "discord_invite_url", "https://discord.gg/abc123")
     monkeypatch.setattr(settings, "goatcounter_site", "farmmoto")
     await db.insert_deal(make("tractorsupply.com", "20% off", summary="Feed"))
@@ -597,3 +599,13 @@ def test_seo_amazon_never_shows_dollars():
     s = seo.summary("amazon.com", [{"store_domain": "amazon.com", "discount_value": "$40 off"}])
     assert "$" not in seo.best_text(s)
     assert "$" not in seo.intro("Amazon", s, __import__("datetime").datetime(2026, 11, 25))
+
+
+async def test_site_has_no_channel_links(db, channels, tmp_path, monkeypatch):
+    from config import settings
+    monkeypatch.setattr(settings, "discord_invite_url", "https://discord.gg/abc123")
+    await db.insert_deal(make("tractorsupply.com", "$60 off", summary="DeWalt chainsaw"))
+    await sitegen.build_site(db, str(tmp_path))
+    for f in tmp_path.rglob("*.html"):
+        text = f.read_text(encoding="utf-8").lower()
+        assert "t.me/" not in text and "discord.gg" not in text, f.name

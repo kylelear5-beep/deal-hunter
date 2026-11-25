@@ -272,7 +272,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
         pick = (f' · <a href="{e(settings.sovrn_pick_url, quote=True)}" rel="sponsored nofollow" '
                 'target="_blank">Today\'s pick: DeWalt drills at Walmart</a>')
     share = ""
-    if settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
+    if settings.site_channel_links and settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
         share = (f'<a class="hbtn green" href="{e(settings.discord_invite_url, quote=True)}" '
                  'target="_blank" rel="noopener">＋<span class="t"> Share a deal</span></a>')
     search_box = (f'<label class="search">🔍<input id="q" type="search" data-home="{u("/")}" '
@@ -335,6 +335,8 @@ def analytics_html() -> str:
 
 def join_banner(niches: list) -> str:
     """Join buttons for PUBLIC channels only (@name). Webhook links are never shown."""
+    if not settings.site_channel_links:
+        return ""
     links = []
     single = len(niches) == 1
     for n in niches:
@@ -383,7 +385,7 @@ def deal_grid(deals: list[dict]) -> str:
 
 
 def premium_button(niche) -> str:
-    if not niche.premium_url:
+    if not settings.site_channel_links or not niche.premium_url:
         return ""
     return (f'<a class="premium" href="{e(niche.premium_url, quote=True)}">'
             f"⭐ Get {e(niche.name)} instantly + price errors</a>")
@@ -476,7 +478,7 @@ def tiktok_scripts_html(deals: list[dict]) -> str:
             tags += " #techdeals #electronics"
         if "astro" in niches:
             tags += " #astrophotography #telescope"
-        caption = f"{hook} - {d.get('promo_code') or 'Link in bio / Telegram'} {tags}"
+        caption = f"{hook} - {d.get('promo_code') or 'Link in bio'} {tags}"
         full_copy = f"HOOK (on screen):\n{hook}\n\nSAY THIS:\n{spoken}\n\nCAPTION:\n{caption}"
         cards.append(
             f'<div class="card">'
