@@ -66,10 +66,14 @@ async def test_send_campaign_end_to_end(monkeypatch):
                 {"email": "a@x.com", "attributes": {"DEALS_FARM": True, "FREQUENCY": "Daily"}},
                 {"email": "b@x.com", "attributes": {"FREQUENCY": "Weekly"}}]})
         if p.endswith("/senders"):
-            return httpx.Response(200, json={"senders": [{"email": "me@x.com", "active": True}]})
+            return httpx.Response(200, json={"senders": [
+                {"email": "kylelear5@gmail.com", "active": True},
+                {"email": "AlertsDealHunter@gmail.com", "active": True}]})
         if p.endswith("/emailCampaigns"):
             body = json.loads(req.content)
             assert body["recipients"] == {"listIds": [2]}
+            assert body["sender"]["email"].lower() == "alertsdealhunter@gmail.com"
+            assert body["replyTo"].lower() == "alertsdealhunter@gmail.com"
             return httpx.Response(201, json={"id": 77})
         return httpx.Response(204)
 
@@ -92,3 +96,18 @@ async def test_no_key_means_no_email(monkeypatch):
 def test_key_is_cleaned(monkeypatch):
     monkeypatch.setattr(settings, "brevo_api_key", " oxkeysib-abc123-DEF \n")
     assert emailer._key() == "xkeysib-abc123-DEF"
+
+
+async def test_never_sends_from_personal_gmail(monkeypatch):
+    monkeypatch.setattr(settings, "brevo_api_key", "xkeysib-x")
+
+    def handler(req):
+        return httpx.Response(200, json={"senders": [{"email": "kylelear5@gmail.com", "active": True}]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        try:
+            await emailer._sender(c)
+        except RuntimeError as e:
+            assert "alertsdealhunter@gmail.com" in str(e)
+        else:
+            raise AssertionError("used the personal Gmail")
