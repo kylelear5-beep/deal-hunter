@@ -91,9 +91,14 @@ def active_events(today=None) -> list[tuple[str, str]]:
 NOTE = "Free trials are for eligible customers. Check Amazon's page for the current terms."
 
 
-def perk_links() -> list[tuple[str, str, str, str]]:
-    """[(emoji, title, blurb, tagged link)]. Links carry the Amazon Store ID when it is set."""
-    return [(em, t, b, build_affiliate_url(url)) for em, t, b, url, _ in PERKS]
+def perk_links(first: list[str] | None = None) -> list[tuple[str, str, str, str]]:
+    """[(emoji, title, blurb, tagged link)]. Links carry the Amazon Store ID when it is set.
+    Titles in `first` (what the email sign-ups want most) move to the top."""
+    out = [(em, t, b, build_affiliate_url(url)) for em, t, b, url, _ in PERKS]
+    if first:
+        rank = {t: i for i, t in enumerate(first)}
+        out.sort(key=lambda p: rank.get(p[1], len(rank)))
+    return out
 
 
 def perks_telegram() -> str:

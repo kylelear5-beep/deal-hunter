@@ -68,6 +68,11 @@ async def run_pipeline(db: Database, dispatcher: AlertDispatcher,
     skipped = [item_hash(i) for i in fresh if not looks_like_deal(i.text)]
     await db.mark_processed(skipped)
     candidates = [i for i in fresh if looks_like_deal(i.text)]
+    try:  # read what the email sign-ups want first (motorcycle/car/vintage parts get a head start)
+        import audience
+        candidates = audience.prioritize(candidates, audience.weights(await audience.load(db)))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Audience ranking skipped: %s", exc)
     try:
         await selfheal.tune_ai_budget(db)
         per_run = await selfheal.ai_per_run(db)
@@ -192,6 +197,9 @@ async def scheduler_tick(db, now_local: datetime | None = None) -> None:
         await _once_per(db, f"digest:{day}", lambda: send_digest(db, weekly=weekly))
     # Deals email: daily every morning, weekly on Sundays (Brevo; off without BREVO_API_KEY)
     from emailer import enabled as _email_on, send_campaign
+    if _email_on():
+        import audience
+        await _once_per(db, f"audience:{day}T{now.hour:02d}", lambda: audience.refresh(db))
     if _email_on() and now.hour >= settings.email_hour:
         await _once_per(db, f"email-daily:{day}", lambda: send_campaign(db, weekly=False))
         if now.weekday() == 6:

@@ -728,12 +728,12 @@ def guides_index_html(niches) -> str:
                 "Buying guides with money-saving tips and the best live deals by category.")
 
 
-def free_trials_html() -> str:
+def free_trials_html(first: list[str] | None = None) -> str:
     from amazon_perks import NOTE, perk_links
     cards = "".join(
         f'<div class="card"><div class="store">{e(em)} {e(t)}</div><p>{e(b)}</p>'
         f'<a class="btn" href="{e(link, quote=True)}" rel="sponsored nofollow" '
-        f'target="_blank">See it on Amazon →</a></div>' for em, t, b, link in perk_links())
+        f'target="_blank">See it on Amazon →</a></div>' for em, t, b, link in perk_links(first))
     body = ("<h1>🎁 Free trials &amp; Amazon perks</h1><p class='lead'>Free trials and "
             "money-saving Amazon programs worth knowing about.</p>"
             f"<div class='grid'>{cards}</div><p class='meta'>{e(NOTE)}</p>")
@@ -764,6 +764,14 @@ async def build_site(db, out_dir: str | None = None) -> int:
             await tginvite.ensure(db, niches)
         except Exception as exc:  # noqa: BLE001 - join buttons must never stop the site
             log.warning("Telegram invite links skipped: %s", exc)
+    aud: dict = {}
+    try:  # what the email sign-ups want: their categories lead the home page tiles
+        import audience
+        aud = await audience.load(db)
+        w = audience.weights(aud)
+        niches = sorted(niches, key=lambda n: -w.get(n.id, 1.0))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Audience order skipped: %s", exc)
     written = 0
     urls = ["/"]
 
@@ -843,7 +851,7 @@ async def build_site(db, out_dir: str | None = None) -> int:
     urls.append("/guides/")
     written += 1
 
-    _write(root, "free-trials/index.html", free_trials_html())
+    _write(root, "free-trials/index.html", free_trials_html(__import__("audience").perk_order(aud)))
     urls.append("/free-trials/")
     written += 1
 
