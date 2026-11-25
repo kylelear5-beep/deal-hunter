@@ -33,8 +33,9 @@ FOLDER = "Deal Hunter"
 LISTS = {"signups": "Deal Hunter signups", "daily": "Deal Hunter daily",
          "weekly": "Deal Hunter weekly"}
 # niche id -> (Brevo attribute, label)
-CATS = {"farm": ("DEALS_FARM", "🚜 Farm & Ranch"), "tools": ("DEALS_TOOLS", "🛠️ Tools & Garage"),
-        "moto": ("DEALS_MOTO", "🏍️ Motorcycle Gear"), "auto": ("DEALS_AUTO", "🚙 Auto & Truck"),
+CATS = {"moto": ("DEALS_MOTO", "🏍️ Motorcycle Parts & Gear"), "auto": ("DEALS_AUTO", "🚙 Auto & Truck Parts"),
+        "vintage": ("DEALS_VINTAGE", "🏁 Vintage & Classic Parts"),
+        "farm": ("DEALS_FARM", "🚜 Farm & Ranch"), "tools": ("DEALS_TOOLS", "🛠️ Tools & Garage"),
         "electronics": ("DEALS_TECH", "💻 Electronics & Tech"),
         "astro": ("DEALS_ASTRO", "🔭 Telescopes & Optics"), "other": ("DEALS_HOME", "🛒 Everyday & Home")}
 BOOL_ATTRS = [a for a, _ in CATS.values()] + ["HAS_PRIME", "LIKES_AUDIOBOOKS", "DEALS_ALL"]
