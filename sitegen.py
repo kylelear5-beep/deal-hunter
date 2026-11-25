@@ -16,7 +16,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from affiliate import best_link, has_product_link, plain_url_for_extension, store_search
-from alerts import CATEGORY_STYLE, DISCLOSURE, deal_label, value_score
+from alerts import CATEGORY_STYLE, DISCLOSURE, deal_label, price_safe, value_score
 from config import settings
 from niches import load_niches
 
@@ -209,6 +209,7 @@ def _found(iso: str | None) -> str:
 
 def card(deal: dict) -> str:
     """One deal card. Only real data: store, what, the discount, code, dates, link."""
+    deal = price_safe(deal)
     label, _ = deal_label(deal)
     verified = bool(deal.get("is_verified"))
     code = deal.get("promo_code") or ""
@@ -417,6 +418,7 @@ def rss_xml(deals: list[dict]) -> str:
     site_url = base + "/" if base else "/"
     items = []
     for d in deals[:50]:
+        d = price_safe(d)
         title = f"{d['store_name']}: {d['discount_value']}"
         if d.get("summary"):
             title += f" - {d['summary']}"
@@ -453,6 +455,7 @@ def tiktok_scripts_html(deals: list[dict]) -> str:
     """Mobile-friendly short-video scripts (TikTok / Shorts / Reels) for today's top deals."""
     cards = []
     for d in deals[:6]:
+        d = price_safe(d)
         item = d.get("summary") or f"{d['store_name']} deal"
         disc = d["discount_value"]
         code_line = f" Use code {d['promo_code']} at checkout." if d.get("promo_code") else ""
@@ -745,7 +748,7 @@ async def build_site(db, out_dir: str | None = None) -> int:
     for domain, deals in by_domain.items():
         rows = sorted(deals.values(), key=lambda d: (not d.get("is_verified"), d["created_at"]))
         payload = {"domain": domain, "count": len(rows),
-                   "deals": [{**{k: d.get(k) for k in public_keys},
+                   "deals": [{**{k: price_safe(d).get(k) for k in public_keys},
                              "extension_url": plain_url_for_extension(d)} for d in rows]}
         _write(root, f"api/deals/{slug(domain)}.json", json.dumps(payload))
         written += 1
