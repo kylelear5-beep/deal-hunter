@@ -285,7 +285,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 {search_box}{share}
 <button class="hbtn dark" id="wl-open" type="button">☆<span class="t"> Watchlist</span> <span class="n" id="wl-n">0</span></button>
 </div><nav class="cats" aria-label="Categories"><a href="{u("/")}"{home_on}>🏠 All deals</a>{nav}</nav></div></header>
-<main class="wrap">{body}</main>
+<main class="wrap">{event_banner()}{body}</main>
 <div class="drawer" id="wl" hidden><div class="panel"><div style="display:flex;justify-content:space-between;align-items:center">
 <h2 style="margin:0">☆ Watchlist</h2><button class="save" id="wl-close" type="button">Close ✕</button></div>
 <p class="meta">Saved on this device only. Prices and codes can change, so check before you buy.</p>
@@ -294,6 +294,15 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 <a href="{u("/guides/")}">Buying guides</a> · <a href="{u("/about.html")}">About &amp; disclosure</a> · <a href="{u("/privacy.html")}">Privacy</a> · <a href="{u("/rss.xml")}">RSS feed</a>{pick}
 <br>© {year} {e(settings.site_name)}. Deals change fast; check the price before you buy.
 </div></footer>{SITE_JS}</body></html>"""
+
+
+def event_banner() -> str:
+    """Amazon sale banner (e.g. Black Friday) while the event is on; nothing otherwise."""
+    from amazon_perks import active_events
+    return "".join(
+        f'<a class="btn" style="display:block;text-align:center;margin:12px 0;font-size:1.1em" '
+        f'href="{e(link, quote=True)}" rel="sponsored nofollow" target="_blank">{e(t)} →</a>'
+        for t, link in active_events())
 
 
 def verification_meta() -> str:

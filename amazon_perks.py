@@ -61,6 +61,23 @@ PERKS = [
      "often.", "https://www.amazon.com/subscribeandsave", 0.25),
 ]
 
+# Amazon sale events (Kyle's links). Shown as a site banner and at the top of the perks post
+# from today until the end date, then they disappear by themselves.
+# (text, link, last day YYYY-MM-DD)
+EVENTS = [
+    ("🛍️ Amazon Black Friday deals are live", "https://www.amazon.com/blackfriday",
+     "2026-12-01"),
+]
+
+
+def active_events(today=None) -> list[tuple[str, str]]:
+    """[(text, tagged link)] for events running today (New York time)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    day = (today or datetime.now(ZoneInfo("America/New_York")).date()).isoformat()
+    return [(t, build_affiliate_url(u)) for t, u, until in EVENTS if day <= until]
+
+
 NOTE = "Free trials are for eligible customers. Check Amazon's page for the current terms."
 
 
@@ -71,7 +88,9 @@ def perk_links() -> list[tuple[str, str, str, str]]:
 
 def perks_telegram() -> str:
     e = html.escape
-    lines = ["<b>🎁 Free trials &amp; Amazon perks worth a look</b>", ""]
+    lines = [f'<b><a href="{e(link, quote=True)}">{e(t)} →</a></b>'
+             for t, link in active_events()]
+    lines += ["<b>🎁 Free trials &amp; Amazon perks worth a look</b>", ""]
     for em, t, b, link in perk_links()[:6]:
         lines.append(f'{em} <a href="{e(link, quote=True)}">{e(t)}</a>: {e(b)}')
     lines += ["", f"<i>{e(NOTE)}</i>", f"<i>{e(DISCLOSURE)}</i>"]
@@ -79,7 +98,8 @@ def perks_telegram() -> str:
 
 
 def perks_discord(username: str) -> dict:
-    rows = [f"{em} [{t}]({link}): {b}" for em, t, b, link in perk_links()[:6]]
+    rows = [f"**[{t} →]({link})**\n" for t, link in active_events()]
+    rows += [f"{em} [{t}]({link}): {b}" for em, t, b, link in perk_links()[:6]]
     return {"username": username[:80], "embeds": [{
         "title": "🎁 Free trials & Amazon perks worth a look",
         "description": ("\n".join(rows) + f"\n\n*{NOTE}*")[:4000],
