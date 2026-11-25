@@ -25,6 +25,30 @@ rss:
   - https://slickdeals.net/newsearch.php?q=sena&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=cardo&searcharea=deals&searchin=first&rss=1
 
+  # Motorcycle & car parts searches
+  - https://slickdeals.net/newsearch.php?q=motorcycle+parts&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=motorcycle+battery&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=j%26p+cycles&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=partzilla&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=auto+parts&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=brake+pads&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=spark+plugs&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=oil+filter&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=rockauto&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=advance+auto+parts&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=autozone&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=oreilly+auto&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=napa&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=summit+racing&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=weathertech&searcharea=deals&searchin=first&rss=1
+
+  # Vintage & classic parts searches
+  - https://slickdeals.net/newsearch.php?q=carburetor&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=classic+car&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=restoration&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=vintage+motorcycle&searcharea=deals&searchin=first&rss=1
+  - https://slickdeals.net/newsearch.php?q=hot+rod&searcharea=deals&searchin=first&rss=1
+
   # Astro & optics searches
   - https://slickdeals.net/newsearch.php?q=telescope&searcharea=deals&searchin=first&rss=1
   - https://slickdeals.net/newsearch.php?q=celestron&searcharea=deals&searchin=first&rss=1

@@ -6,6 +6,169 @@
 #   (e.g. FARM_FREE_TELEGRAM=@farmdeals)
 
 niches:
+  - id: moto
+    name: Motorcycle Parts & Gear Deals
+    emoji: "🏍️"
+    stores:
+      - revzilla.com
+      - cyclegear.com
+      - jpcycles.com
+      - motosport.com
+      - denniskirk.com
+      - partzilla.com
+      - rockymountainatvmc.com
+      - lockhartphillipsusa.com
+      - twistedthrottle.com
+      - sena.com
+      - cardosystems.com
+      - aerostich.com
+      - klim.com
+    keywords:
+      - motorcycle
+      - motorbike
+      - riding jacket
+      - riding pants
+      - riding gloves
+      - riding boots
+      - helmet
+      - full face
+      - modular helmet
+      - sena
+      - cardo
+      - intercom
+      - shoei
+      - arai
+      - hjc
+      - bell helmet
+      - alpinestars
+      - dainese
+      - rev'it
+      - revit
+      - klim
+      - saddlebag
+      - saddlebags
+      - motorcycle tire
+      - dirt bike
+      - adventure bike
+      - harley
+      - goldwing
+      - motorcycle parts
+      - motorcycle battery
+      - motorcycle chain
+      - sprocket
+      - brake pads motorcycle
+      - motorcycle exhaust
+      - slip-on exhaust
+      - handlebar
+      - windscreen
+      - crash bars
+      - luggage rack
+      - motorcycle lift
+      - battery tender
+      - k&n
+      - ebc brakes
+
+  - id: auto
+    name: Auto & Truck Parts Deals
+    emoji: "🚙"
+    stores:
+      - autozone.com
+      - advanceautoparts.com
+      - oreillyauto.com
+      - rockauto.com
+      - tirerack.com
+      - chemicalguys.com
+      - griotsgarage.com
+      - napaonline.com
+      - jegs.com
+      - summitracing.com
+      - carparts.com
+      - partsgeek.com
+    keywords:
+      - dash cam
+      - dashcam
+      - jump starter
+      - battery charger
+      - obd2
+      - floor jack
+      - jack stand
+      - car cover
+      - tonneau
+      - roof rack
+      - trailer hitch
+      - winch
+      - synthetic oil
+      - motor oil
+      - wiper blades
+      - car wash
+      - detailing
+      - tire inflator
+      - auto parts
+      - car parts
+      - truck parts
+      - brake pads
+      - brake rotors
+      - rotors
+      - spark plugs
+      - oil filter
+      - air filter
+      - cabin air filter
+      - headlight
+      - headlights
+      - led headlight
+      - car battery
+      - alternator
+      - starter motor
+      - shocks
+      - struts
+      - exhaust
+      - floor mats
+      - weathertech
+      - bilstein
+      - bosch wiper
+      - moog
+      - acdelco
+      - motorcraft
+      - mopar
+
+  - id: vintage
+    name: Vintage & Classic Parts Deals
+    emoji: "🏁"
+    stores:
+      - classicindustries.com
+      - yearone.com
+      - opgi.com
+      - nationalpartsdepot.com
+      - lmctruck.com
+      - ecklers.com
+      - restorationparts.com
+    keywords:
+      - vintage motorcycle
+      - vintage car
+      - vintage truck
+      - vintage parts
+      - classic car
+      - classic truck
+      - classic motorcycle
+      - new old stock
+      - restoration
+      - restoration parts
+      - carburetor
+      - carb rebuild kit
+      - hot rod
+      - muscle car
+      - chrome bumper
+      - points ignition
+      - air cooled vw
+      - shovelhead
+      - panhead
+      - ironhead
+      - cb750
+      - mustang restoration
+      - chevelle
+      - camaro restoration
+      - c10
+
   - id: farm
     name: Farm, Ranch & Outdoor Deals
     emoji: "🚜"
@@ -64,53 +227,6 @@ niches:
       - milwaukee
       - dewalt
 
-  - id: moto
-    name: Motorcycle Gear Deals
-    emoji: "🏍️"
-    stores:
-      - revzilla.com
-      - cyclegear.com
-      - jpcycles.com
-      - motosport.com
-      - denniskirk.com
-      - partzilla.com
-      - rockymountainatvmc.com
-      - lockhartphillipsusa.com
-      - twistedthrottle.com
-      - sena.com
-      - cardosystems.com
-      - aerostich.com
-      - klim.com
-    keywords:
-      - motorcycle
-      - motorbike
-      - riding jacket
-      - riding pants
-      - riding gloves
-      - riding boots
-      - helmet
-      - full face
-      - modular helmet
-      - sena
-      - cardo
-      - intercom
-      - shoei
-      - arai
-      - hjc
-      - bell helmet
-      - alpinestars
-      - dainese
-      - rev'it
-      - revit
-      - klim
-      - saddlebag
-      - saddlebags
-      - motorcycle tire
-      - dirt bike
-      - adventure bike
-      - harley
-      - goldwing
-
   - id: tools
     name: Tools & Garage Deals
     emoji: "🛠️"
@@ -154,37 +270,6 @@ niches:
       - work light
       - welder
       - workbench
-
-  - id: auto
-    name: Auto & Truck Deals
-    emoji: "🚙"
-    stores:
-      - autozone.com
-      - advanceautoparts.com
-      - oreillyauto.com
-      - rockauto.com
-      - tirerack.com
-      - chemicalguys.com
-      - griotsgarage.com
-    keywords:
-      - dash cam
-      - dashcam
-      - jump starter
-      - battery charger
-      - obd2
-      - floor jack
-      - jack stand
-      - car cover
-      - tonneau
-      - roof rack
-      - trailer hitch
-      - winch
-      - synthetic oil
-      - motor oil
-      - wiper blades
-      - car wash
-      - detailing
-      - tire inflator
 
   - id: electronics
     name: Electronics & Tech Deals

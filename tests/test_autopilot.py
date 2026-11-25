@@ -76,7 +76,7 @@ def channels(monkeypatch):
 
 # -- niches --------------------------------------------------------------------
 def test_niche_matching():
-    assert {n.id for n in load_niches()} == {"farm", "moto", "tools", "auto", "electronics", "astro", "other"}
+    assert {n.id for n in load_niches()} == {"farm", "moto", "tools", "auto", "vintage", "electronics", "astro", "other"}
     assert match_niches({"store_domain": "tractorsupply.com", "discount_value": "10% off"}) \
         == ["farm"]
     assert match_niches({"store_domain": "amazon.com", "summary": "Sena 50S intercom",

@@ -216,8 +216,9 @@ def u(path: str) -> str:
     return base_path() + path
 
 
-CATS_JS = {"farm": "Farm and ranch", "tools": "Tools", "moto": "Motorcycle", "auto": "Auto and truck",
-           "electronics": "Tech", "astro": "Telescope and space", "other": "Home"}
+CATS_JS = {"moto": "Motorcycle parts", "auto": "Car and truck parts", "vintage": "Vintage and classic parts",
+           "farm": "Farm and ranch", "tools": "Tools", "electronics": "Tech", "astro": "Telescope and space",
+           "other": "Home"}
 
 PICKS_JS = """<script>
 (function(){
@@ -672,6 +673,12 @@ GUIDE_TIPS = {
         "parts are a hassle.",
         "Oil, filters and wipers are cheapest during holiday weekend sales. Stock up then.",
         "Many stores test batteries, alternators and check-engine codes for free."]),
+    "vintage": ("Vintage & classic parts", [
+        "eBay Motors has the biggest pick of vintage, NOS (new old stock) and used parts. "
+        "Check the seller's rating and photos of the actual part.",
+        "Match part numbers, not just the year: many classic parts changed mid-year.",
+        "Reproduction parts are often cheaper and easier to find than original NOS parts.",
+        "Carburetor rebuild kits and gaskets are cheap wins. Buy two if the price is good."]),
     "electronics": ("Electronics & tech", [
         "Compare the exact model number. Black Friday TVs are sometimes cheaper 'special' models "
         "with fewer features.",

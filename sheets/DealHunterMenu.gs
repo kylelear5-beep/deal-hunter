@@ -200,7 +200,7 @@ function alert_(msg) { try { SpreadsheetApp.getUi().alert(msg); } catch (e) { Lo
 // The website's sign-up box posts here (Deploy > Web app). We pass it to Brevo.
 // The Brevo key is kept in this script's private settings, never in a cell or on the site.
 var BREVO_SIGNUP_LIST = 4;
-var CAT_ATTRS = {farm: 'DEALS_FARM', tools: 'DEALS_TOOLS', moto: 'DEALS_MOTO', auto: 'DEALS_AUTO',
+var CAT_ATTRS = {vintage: 'DEALS_VINTAGE', farm: 'DEALS_FARM', tools: 'DEALS_TOOLS', moto: 'DEALS_MOTO', auto: 'DEALS_AUTO',
   electronics: 'DEALS_TECH', astro: 'DEALS_ASTRO', other: 'DEALS_HOME'};
 
 function setupEmail() {
