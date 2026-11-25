@@ -124,6 +124,10 @@ class Settings:
 
     # Affiliate links
     amazon_tag: str = _str("AMAZON_ASSOCIATE_TAG", "")
+    # One Amazon tracking ID per channel, so Amazon's Tracking ID Report shows where sales come from.
+    amazon_tag_web: str = _str("AMAZON_TAG_WEB", "dhweb00-20")
+    amazon_tag_telegram: str = _str("AMAZON_TAG_TELEGRAM", "dhtelegram-20")
+    amazon_tag_email: str = _str("AMAZON_TAG_EMAIL", "dhemail-20")
     ebay_campid: str = _str("EBAY_CAMPAIGN_ID", "")
     ebay_customid: str = _str("EBAY_CUSTOM_ID", "dealhunter")
     # Generic fallback, e.g. https://your.impact.link/c/123/456/789?u={url}&subId1={subid}

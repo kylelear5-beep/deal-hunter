@@ -172,6 +172,8 @@ async def telegram_send(client: httpx.AsyncClient, chat_id: str, text: str
     if not settings.telegram_bot_token:
         return False, None, "TELEGRAM_BOT_TOKEN not set"
     url = f"https://api.telegram.org/bot{settings.telegram_bot_token}/sendMessage"
+    from affiliate import retag_amazon
+    text = retag_amazon(text, "telegram")     # Telegram sales show as their own tracking ID
     resp = await client.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "HTML",
                                         "disable_web_page_preview": False})
     if resp.is_success:

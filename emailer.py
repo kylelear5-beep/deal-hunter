@@ -164,7 +164,7 @@ def deal_url(deal: dict, nid: str = "") -> str:
     so the site can show their deals first on any device."""
     from sitegen import slug
     base = (settings.public_base_url or "").rstrip("/")
-    q = f"?for={nid}" if nid else ""
+    q = f"?for={nid}&src=email" if nid else "?src=email"
     return f"{base}/store/{slug(deal['store_domain'])}.html{q}#d-{deal['deal_hash'][:12]}"
 
 

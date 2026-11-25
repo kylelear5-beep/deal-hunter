@@ -167,3 +167,13 @@ def plain_url_for_extension(deal: dict) -> str:
     if any(host_matches(domain, d) for d in skip):
         return clean_url(deal["merchant_url"])
     return deal.get("affiliate_url") or ""
+
+
+def retag_amazon(text: str, channel: str) -> str:
+    """Swap our main Amazon tag for the channel's own tracking ID ('web', 'telegram', 'email').
+    Works on a single link or a whole page/message. Leaves everything else alone."""
+    main = settings.amazon_tag
+    new = getattr(settings, f"amazon_tag_{channel}", "") or ""
+    if not text or not main or not new or new == main:
+        return text
+    return text.replace(f"tag={main}", f"tag={new}")

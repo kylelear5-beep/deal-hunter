@@ -228,6 +228,11 @@ if(qs.get('for')){p=p||{};var add=qs.get('for').split(',');p.cats=(p.cats||[]).c
  .filter(function(x,i,a){return x&&a.indexOf(x)===i});
  if(qs.get('prime'))p.prime=qs.get('prime');if(qs.get('audio'))p.audio=qs.get('audio');
  try{localStorage.setItem(K,JSON.stringify(p))}catch(e){}}
+var src=qs.get('src');try{if(src)sessionStorage.setItem('dh_src',src);src=sessionStorage.getItem('dh_src')}catch(e){}
+var TW=document.body.dataset.tagWeb,TE=document.body.dataset.tagEmail;
+if(src==='email'&&TW&&TE){[].slice.call(document.querySelectorAll('a[href*="tag='+TW+'"]')).forEach(function(a){
+ a.href=a.href.replace('tag='+TW,'tag='+TE)});[].slice.call(document.querySelectorAll('[data-link*="tag='+TW+'"]'))
+ .forEach(function(c){c.dataset.link=c.dataset.link.replace('tag='+TW,'tag='+TE)})}
 var box=document.getElementById('signup'),mine=document.getElementById('mine');
 function showMine(){if(!mine||!p||!p.cats||!p.cats.length)return;
  var all=p.cats.indexOf('all')>-1,g=document.querySelector('.grid'),mg=mine.querySelector('.mygrid');
@@ -414,7 +419,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{e(title)}</title><meta name="description" content="{e(description or title, quote=True)}">{extra_head}
 <link rel="alternate" type="application/rss+xml" title="{e(settings.site_name)} RSS" href="{u('/rss.xml')}">
-<style>{CSS}</style>{analytics_html()}</head><body>
+<style>{CSS}</style>{analytics_html()}</head><body data-tag-web="{e(settings.amazon_tag_web, quote=True)}" data-tag-email="{e(settings.amazon_tag_email, quote=True)}">
 <header class="top"><div class="wrap"><div class="row1">
 <a class="logo" href="{u("/")}"><span class="mark">🏷️</span><span>{e(settings.site_name)}</span></a>
 {search_box}{share}
@@ -732,6 +737,9 @@ def _write(root: Path, rel: str, content: str) -> None:
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
+    if rel.endswith((".html", ".xml")):
+        from affiliate import retag_amazon
+        content = retag_amazon(content, "web")       # website sales show as the web tracking ID
     tmp.write_text(content, encoding="utf-8")
     os.replace(tmp, path)
 
