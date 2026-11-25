@@ -140,3 +140,34 @@ def test_bad_key_turns_backup_off(monkeypatch):
 
 def test_json_wrapped_in_words_is_read():
     assert p._json_part('Here you go:\n```json\n{"deals": []}\n```') == '{"deals": []}'
+
+
+def test_daily_limit_switches_model_and_keeps_the_post(monkeypatch):
+    ex, calls = make(monkeypatch, budget=0)
+    monkeypatch.setattr(settings, "backup_models", ["m20b", "m120b"])
+    seen = []
+
+    async def bak(text):
+        model = settings.backup_models[ex.backup_model_i]
+        seen.append(model)
+        if model == "m20b":
+            raise RuntimeError("RateLimitError Error code: 429 - Rate limit reached for model `m20b` "
+                               "on tokens per day (TPD): Limit 200000, Used 199900")
+        return GOOD
+
+    ex._backup_call = bak
+    run(ex.extract("x"))              # same post, read by the next model, nothing lost
+    assert seen == ["m20b", "m120b"] and ex.backup_used == 1
+
+
+def test_per_minute_limit_does_not_switch(monkeypatch):
+    ex, calls = make(monkeypatch, budget=0)
+    monkeypatch.setattr(settings, "backup_models", ["m20b", "m120b"])
+
+    async def bak(text):
+        raise RuntimeError("Error code: 429 - Rate limit reached on tokens per minute (TPM)")
+
+    ex._backup_call = bak
+    with pytest.raises(p.AIQuotaUsedUp):
+        run(ex.extract("x"))
+    assert ex.backup_model_i == 0
