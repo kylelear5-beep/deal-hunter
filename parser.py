@@ -290,6 +290,23 @@ def _is_quota_error(exc: Exception) -> bool:
     return "429" in text or "RESOURCE_EXHAUSTED" in text or "quota" in text.lower()
 
 
+def _is_model_gone(msg: str) -> bool:
+    m = msg.lower()
+    return ("model_not_found" in m or "does not exist" in m or "decommissioned" in m
+            or ("404" in m and "model" in m))
+
+
+def _is_auth_error(msg: str) -> bool:
+    return "401" in msg or "invalid_api_key" in msg.lower()
+
+
+def _json_part(raw: str) -> str:
+    """Some models wrap the JSON in words or ``` fences; keep just the {...} part."""
+    raw = (raw or "").strip()
+    a, b = raw.find("{"), raw.rfind("}")
+    return raw[a:b + 1] if a != -1 and b > a else '{"deals": []}'
+
+
 class LLMExtractor:
     """Gemini (google-genai) by default; LLM_PROVIDER=openai for any OpenAI-compatible API
     (OpenAI, Ollama, LM Studio, OpenRouter... via OPENAI_BASE_URL)."""
@@ -301,6 +318,7 @@ class LLMExtractor:
     backup_hits = 0
     backup_out = False
     backup_used = 0
+    backup_model_i = 0
 
     def __init__(self):
         self.provider = settings.llm_provider
@@ -366,8 +384,11 @@ class LLMExtractor:
 
     async def _backup_call(self, text: str) -> str:
         schema = json.dumps(ExtractionResult.model_json_schema())
+        model = settings.backup_models[self.backup_model_i]
+        extra = {"reasoning_effort": "low"} if "gpt-oss" in model else {}
         resp = await self.backup.chat.completions.create(
-            model=settings.backup_model,
+            model=model,
+            extra_body=extra or None,
             temperature=0,
             messages=[{"role": "system", "content": self._system()
                        + "\nAnswer with ONLY a JSON object that matches this JSON schema:\n"
@@ -395,28 +416,44 @@ class LLMExtractor:
             return await self._extract_backup(text)
         raise AIQuotaUsedUp("no AI reads left this run")
 
+    def _next_backup_model(self, why: str) -> bool:
+        """Move to the next backup model. False when none are left (backup off for this run)."""
+        models = settings.backup_models
+        log.warning("Backup AI model %s: %s", models[self.backup_model_i], why[:120])
+        if self.backup_model_i + 1 < len(models):
+            self.backup_model_i += 1
+            self.backup_hits = 0
+            log.info("Backup AI now using %s", models[self.backup_model_i])
+            return True
+        self.backup_out = True
+        log.warning("No backup AI model left for this run; the rest wait.")
+        return False
+
     async def _extract_backup(self, text: str) -> ExtractionResult:
         text = text[: settings.backup_max_chars]
-        async for attempt in AsyncRetrying(stop=stop_after_attempt(2),
-                                           wait=wait_exponential_jitter(initial=4, max=30),
-                                           retry=retry_if_not_exception_type(AIQuotaUsedUp),
-                                           reraise=True):
-            with attempt:
-                await self.backup_limiter.wait()
-                try:
-                    raw = await self._backup_call(text)
-                except Exception as exc:  # noqa: BLE001
-                    if _is_quota_error(exc):
-                        self.backup_hits += 1
-                        if self.backup_hits >= 2 and not self.backup_out:
-                            self.backup_out = True
-                            log.warning("Backup AI free limit reached; the rest wait.")
-                        raise AIQuotaUsedUp(str(exc)[:200]) from exc
-                    raise
-                self.backup_hits = 0
-                self.backup_used += 1
-                return ExtractionResult.model_validate(json.loads(raw))
-        raise RuntimeError("unreachable")  # pragma: no cover
+        while not self.backup_out:
+            await self.backup_limiter.wait()
+            try:
+                raw = await self._backup_call(text)
+            except Exception as exc:  # noqa: BLE001
+                msg = f"{type(exc).__name__} {exc}"
+                if _is_model_gone(msg) or _is_auth_error(msg):
+                    if _is_auth_error(msg):
+                        self.backup_out = True        # bad key: no model will work
+                        log.warning("Backup AI key was refused; backup off this run.")
+                        break
+                    self._next_backup_model(msg)
+                    continue
+                if _is_quota_error(exc):
+                    self.backup_hits += 1
+                    if self.backup_hits >= 2:
+                        self._next_backup_model(msg)  # this model's daily limit is used up
+                    raise AIQuotaUsedUp(msg[:200]) from exc
+                raise
+            self.backup_hits = 0
+            self.backup_used += 1
+            return ExtractionResult.model_validate(json.loads(_json_part(raw)))
+        raise AIQuotaUsedUp("backup AI is off for this run")
 
     async def _extract_primary(self, text: str) -> ExtractionResult:
         text = text[: settings.llm_max_chars]

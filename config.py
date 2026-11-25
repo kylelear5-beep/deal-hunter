@@ -75,7 +75,10 @@ class Settings:
     # Switched off when GROQ_API_KEY is empty.
     backup_api_key: str = _str("GROQ_API_KEY", "")
     backup_base_url: str = _str("BACKUP_AI_BASE_URL", "https://api.groq.com/openai/v1")
-    backup_model: str = _str("BACKUP_AI_MODEL", "llama-3.1-8b-instant")
+    # Tried in order; each Groq model has its own free daily limit, so the next one takes over
+    # when a model is retired or used up.
+    backup_models: list = field(default_factory=lambda: _list("BACKUP_AI_MODELS") or [
+        "openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"])
     backup_max_rpm: int = _int("BACKUP_AI_MAX_RPM", 4)
     backup_max_chars: int = _int("BACKUP_AI_MAX_CHARS", 4000)
     backup_items_per_run: int = _int("BACKUP_AI_ITEMS_PER_RUN", 8)
