@@ -28,3 +28,9 @@ def test_black_friday_banner_shows_then_ends(monkeypatch):
     on = amazon_perks.active_events(date(2026, 11, 27))
     assert on and "blackfriday" in on[0][1] and "tag=dealhunte0120-20" in on[0][1]
     assert amazon_perks.active_events(date(2026, 12, 2)) == []
+
+
+def test_best_sellers_in_menu(monkeypatch):
+    monkeypatch.setattr(settings, "amazon_tag", "dealhunte0120-20")
+    html = sitegen.free_trials_html()
+    assert "gp/bestsellers/?tag=dealhunte0120-20" in html and "Best Sellers" in html
