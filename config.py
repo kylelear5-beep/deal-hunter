@@ -76,6 +76,8 @@ class Settings:
     # Deals email (Brevo). Off when BREVO_API_KEY is empty.
     brevo_api_key: str = _str("BREVO_API_KEY", "")
     email_from_name: str = _str("EMAIL_FROM_NAME", "Deal Hunter")
+    # Deals emails come only from this address (never Kyle's personal Gmail).
+    email_from: str = _str("EMAIL_FROM", "alertsdealhunter@gmail.com")
     email_hour: int = _int("EMAIL_HOUR", 7)          # New York time
     backup_api_key: str = _str("GROQ_API_KEY", "")
     backup_base_url: str = _str("BACKUP_AI_BASE_URL", "https://api.groq.com/openai/v1")

@@ -238,12 +238,16 @@ async def gather(db, weekly: bool) -> dict[str, list[dict]]:
 
 
 async def _sender(client) -> dict:
+    """Send only from settings.email_from. Never fall back to another address,
+    so Kyle's personal Gmail is never used."""
+    want = settings.email_from.strip().lower()
     r = await client.get(f"{API}/senders", headers=_headers())
     r.raise_for_status()
-    senders = [s for s in r.json().get("senders", []) if s.get("active", True)]
-    if not senders:
-        raise RuntimeError("No verified sender in Brevo")
-    return {"name": settings.email_from_name, "email": senders[0]["email"]}
+    for s in r.json().get("senders", []):
+        if s.get("email", "").lower() == want and s.get("active", True):
+            return {"name": settings.email_from_name, "email": s["email"]}
+    raise RuntimeError(f"{want} is not a verified Brevo sender yet "
+                       "(Brevo > Senders > Add a sender, then type the code Brevo emails)")
 
 
 async def send_campaign(db, weekly: bool, client=None) -> dict:
@@ -265,7 +269,8 @@ async def send_campaign(db, weekly: bool, client=None) -> dict:
         subject = ("🏷️ This week's best deals for you" if weekly
                    else f"🏷️ Today's deals for you ({today.strftime('%b %-d')})")
         body = {"name": f"Deal Hunter {key} {today:%Y-%m-%d}", "subject": subject,
-                "sender": await _sender(client), "htmlContent": build_html(sections, weekly, today),
+                "sender": (snd := await _sender(client)), "replyTo": snd["email"],
+                "htmlContent": build_html(sections, weekly, today),
                 "recipients": {"listIds": [ids[key]]}, "inlineImageActivation": False}
         r = await client.post(f"{API}/emailCampaigns", headers=_headers(), json=body)
         r.raise_for_status()
