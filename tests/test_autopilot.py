@@ -446,7 +446,7 @@ async def test_site_join_buttons_filters_and_counter(db, channels, tmp_path, mon
     await sitegen.build_site(db, str(tmp_path))
     home = (tmp_path / "index.html").read_text()
     farm = (tmp_path / "farm" / "index.html").read_text()
-    assert "https://t.me/farmfree" in home and "https://discord.gg/abc123" in home
+    assert "https://t.me/farmfree" in home and "discord.gg" not in home   # Discord never
     assert "-100111" not in home                                   # private channel never shown
     assert 'class="filter-bar"' in farm and 'data-cat="COUPON"' in farm
     assert "farmmoto.goatcounter.com" in farm
@@ -608,7 +608,7 @@ async def test_site_has_no_channel_links(db, channels, tmp_path, monkeypatch):
     await sitegen.build_site(db, str(tmp_path))
     for f in tmp_path.rglob("*.html"):
         text = f.read_text(encoding="utf-8").lower()
-        assert "t.me/" not in text and "discord.gg" not in text, f.name
+        assert "discord.gg" not in text and "discord.com/invite" not in text, f.name
 
 
 async def test_deal_share_button(db, channels, tmp_path):
@@ -617,3 +617,16 @@ async def test_deal_share_button(db, channels, tmp_path):
     html = (tmp_path / "index.html").read_text(encoding="utf-8")
     assert 'class="share"' in html and "navigator.share" in html
     assert 'data-url="' in html and '.html#d-' in html
+
+
+async def test_telegram_join_uses_saved_invite(db, channels, tmp_path, monkeypatch):
+    import tginvite
+    from niches import load_niches
+    niche = load_niches()[0]
+    monkeypatch.setenv(f"{niche.id.upper()}_FREE_TELEGRAM", "-1001234567890")
+    await db.kv_set(f"tg_invite:{niche.id}:-1001234567890", "https://t.me/+abcDEF123")
+    tginvite.LINKS.clear()
+    await db.insert_deal(make("tractorsupply.com", "$60 off", summary="DeWalt chainsaw"))
+    await sitegen.build_site(db, str(tmp_path))
+    html = (tmp_path / niche.id / "index.html").read_text(encoding="utf-8")
+    assert "https://t.me/+abcDEF123" in html

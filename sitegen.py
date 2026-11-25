@@ -288,7 +288,7 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
         pick = (f' · <a href="{e(settings.sovrn_pick_url, quote=True)}" rel="sponsored nofollow" '
                 'target="_blank">Today\'s pick: DeWalt drills at Walmart</a>')
     share = ""
-    if settings.site_channel_links and settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
+    if False:  # no Discord links on the website (Kyle's rule)
         share = (f'<a class="hbtn green" href="{e(settings.discord_invite_url, quote=True)}" '
                  'target="_blank" rel="noopener">＋<span class="t"> Share a deal</span></a>')
     search_box = (f'<label class="search">🔍<input id="q" type="search" data-home="{u("/")}" '
@@ -350,21 +350,22 @@ def analytics_html() -> str:
 
 
 def join_banner(niches: list) -> str:
-    """Join buttons for PUBLIC channels only (@name). Webhook links are never shown."""
-    if not settings.site_channel_links:
+    """Telegram join buttons (free channels). Never Discord (Kyle's rule)."""
+    if not settings.site_telegram_links:
         return ""
+    from tginvite import LINKS
     links = []
     single = len(niches) == 1
     for n in niches:
-        tg = n.telegram_chat("free")
-        if tg.startswith("@"):
+        link = LINKS.get(n.id, "")
+        if not link:
+            tg = n.telegram_chat("free")
+            link = f"https://t.me/{tg[1:]}" if tg.startswith("@") else ""
+        if link:
             text = (f"Join {e(n.emoji)} {e(n.name)} on Telegram" if single
                     else f"{e(n.emoji)} {e(n.name.replace(' Deals', ''))}")
-            links.append(f'<a class="join-btn" href="https://t.me/{e(tg[1:], quote=True)}" '
+            links.append(f'<a class="join-btn" href="{e(link, quote=True)}" '
                          f'target="_blank" rel="noopener">{text}</a>')
-    if settings.discord_invite_url.startswith(("https://discord.gg/", "https://discord.com/invite/")):
-        links.append(f'<a class="join-btn" href="{e(settings.discord_invite_url, quote=True)}" '
-                     'target="_blank" rel="noopener">Join our Discord</a>')
     if not links:
         return ""
     label = "" if single else '<span class="join-label">Free alerts on Telegram:</span>'
@@ -625,6 +626,12 @@ async def build_site(db, out_dir: str | None = None) -> int:
     root = Path(out_dir or settings.site_dir)
     root.mkdir(parents=True, exist_ok=True)
     niches = load_niches()
+    if settings.site_telegram_links:
+        try:
+            import tginvite
+            await tginvite.ensure(db, niches)
+        except Exception as exc:  # noqa: BLE001 - join buttons must never stop the site
+            log.warning("Telegram invite links skipped: %s", exc)
     written = 0
     urls = ["/"]
 
