@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 45
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy2.outputs.page_url || steps.deploy3.outputs.page_url }}
     env:
       DB_PATH: data/deals.db
       BACKUP_DIR: data/backups
@@ -119,7 +119,27 @@ jobs:
           path: site
           include-hidden-files: true
 
+      # GitHub sometimes can't find the just-uploaded site for a few seconds
+      # ("Fetching artifact metadata failed ... re-run later"), so try up to 3 times.
       - id: deploy
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+
+      - name: Wait before trying the website again
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 30
+
+      - id: deploy2
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+
+      - name: Wait before the last website try
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 60
+
+      - id: deploy3
+        if: steps.deploy.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v5
 
       - name: Tell Kyle if runs keep failing
