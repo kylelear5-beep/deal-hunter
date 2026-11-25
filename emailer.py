@@ -41,8 +41,16 @@ BOOL_ATTRS = [a for a, _ in CATS.values()] + ["HAS_PRIME", "LIKES_AUDIOBOOKS", "
 FREQ_ATTR = "FREQUENCY"          # category: Daily / Weekly
 
 
+def _key() -> str:
+    """The Brevo key, cleaned: keeps just the xkeysib-... part (drops stray letters/spaces)."""
+    import re
+    raw = settings.brevo_api_key or ""
+    m = re.search(r"xkeysib-[A-Za-z0-9-]+", raw)
+    return m.group(0) if m else raw.strip()
+
+
 def _headers() -> dict:
-    return {"api-key": settings.brevo_api_key, "accept": "application/json",
+    return {"api-key": _key(), "accept": "application/json",
             "content-type": "application/json"}
 
 
@@ -55,6 +63,9 @@ async def ensure_setup(client: httpx.AsyncClient, db=None) -> dict:
     """Create the folder, lists and contact attributes if they don't exist. Returns list ids."""
     # attributes
     r = await client.get(f"{API}/contacts/attributes", headers=_headers())
+    if r.status_code == 401:
+        k = _key()
+        raise RuntimeError(f"Brevo refused the key (starts {k[:8]!r}, {len(k)} chars): {r.text[:200]}")
     r.raise_for_status()
     have = {a["name"] for a in r.json().get("attributes", [])}
     for name in BOOL_ATTRS:

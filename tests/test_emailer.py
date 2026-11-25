@@ -87,3 +87,8 @@ async def test_send_campaign_end_to_end(monkeypatch):
 async def test_no_key_means_no_email(monkeypatch):
     monkeypatch.setattr(settings, "brevo_api_key", "")
     assert (await emailer.send_campaign(None, weekly=False))["skipped"]
+
+
+def test_key_is_cleaned(monkeypatch):
+    monkeypatch.setattr(settings, "brevo_api_key", " oxkeysib-abc123-DEF \n")
+    assert emailer._key() == "xkeysib-abc123-DEF"
