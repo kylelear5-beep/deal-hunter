@@ -230,9 +230,9 @@ if(qs.get('for')){p=p||{};var add=qs.get('for').split(',');p.cats=(p.cats||[]).c
  try{localStorage.setItem(K,JSON.stringify(p))}catch(e){}}
 var src=qs.get('src');try{if(src)sessionStorage.setItem('dh_src',src);src=sessionStorage.getItem('dh_src')}catch(e){}
 var TW=document.body.dataset.tagWeb,TE=document.body.dataset.tagEmail;
-if(src==='email'&&TW&&TE){[].slice.call(document.querySelectorAll('a[href*="tag='+TW+'"]')).forEach(function(a){
- a.href=a.href.replace('tag='+TW,'tag='+TE)});[].slice.call(document.querySelectorAll('[data-link*="tag='+TW+'"]'))
- .forEach(function(c){c.dataset.link=c.dataset.link.replace('tag='+TW,'tag='+TE)})}
+if(src==='email'&&TW&&TE){var sw=function(u){return u.replace('tag='+TW,'tag='+TE).replace('customid=web-','customid=email-')};
+ [].slice.call(document.querySelectorAll('a[href*="tag='+TW+'"],a[href*="customid=web-"]')).forEach(function(a){a.href=sw(a.href)});
+ [].slice.call(document.querySelectorAll('[data-link]')).forEach(function(c){c.dataset.link=sw(c.dataset.link)})}
 var box=document.getElementById('signup'),mine=document.getElementById('mine');
 function showMine(){if(!mine||!p||!p.cats||!p.cats.length)return;
  var all=p.cats.indexOf('all')>-1,g=document.querySelector('.grid'),mg=mine.querySelector('.mygrid');

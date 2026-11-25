@@ -44,3 +44,13 @@ def test_telegram_uses_telegram_tag(monkeypatch):
             await publisher.telegram_send(c, "1", '<a href="https://amazon.com/dp/X?tag=dealhunte0120-20">x</a>')
     asyncio.run(go())
     assert "dhtelegram-20" in seen["body"] and "dealhunte0120-20" not in seen["body"]
+
+
+def test_ebay_links_carry_channel(monkeypatch):
+    _tags(monkeypatch)
+    monkeypatch.setattr(settings, "ebay_campid", "5339")
+    u = "https://www.ebay.com/itm/1?campid=5339&customid=abc123&toolid=10001"
+    assert "customid=web-abc123" in affiliate.retag_amazon(u, "web")
+    assert "customid=telegram-abc123" in affiliate.retag_amazon(u, "telegram")
+    twice = affiliate.retag_amazon(affiliate.retag_amazon(u, "web"), "web")
+    assert twice.count("web-") == 1
