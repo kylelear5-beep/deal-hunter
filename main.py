@@ -15,6 +15,8 @@
   python main.py find-chats           list Telegram chats the bot was added to (with IDs)
   python main.py build-site           rebuild the public website now
   python main.py report               send the weekly owner report now
+  python main.py try-part PART        try one part on the side (feeds, ai, verify, links, site,
+                                      sheet, recheck, selfheal) - nothing is posted or saved
 """
 from __future__ import annotations
 
@@ -526,6 +528,8 @@ def main() -> None:
                  "list-keys",
                  "check-setup", "find-chats", "build-site", "report"):
         sub.add_parser(name)
+    p = sub.add_parser("try-part", help="try one part on the side (for checking fixes)")
+    p.add_argument("part")
     p = sub.add_parser("add-key")
     p.add_argument("--owner", default="me")
     p.add_argument("--tier", choices=["free", "pro"], default="pro")
@@ -545,6 +549,9 @@ def main() -> None:
             asyncio.run(cmd_add_key(args.owner, args.tier))
         elif args.cmd == "revoke-key":
             asyncio.run(cmd_revoke_key(args.prefix))
+        elif args.cmd == "try-part":
+            from trypart import try_part
+            sys.exit(0 if asyncio.run(try_part(args.part)) else 1)
         else:
             asyncio.run(commands[args.cmd]())
     except KeyboardInterrupt:

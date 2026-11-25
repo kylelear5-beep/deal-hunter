@@ -1,0 +1,68 @@
+# Tries ONLY the part an auto-fix changed, on the side, with the real settings and a copy of
+# the database. Nothing is posted, published or saved. An auto-fix is merged only when this
+# check and the "tests" check both pass.
+#
+# The part comes from the pull request title, e.g. "Auto-fix [part: verify]: ...".
+# Parts: feeds, ai, verify, links, site, sheet, recheck, selfheal (default: site).
+name: try-fix
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: try-fix-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  try-fix:
+    if: startsWith(github.head_ref, 'autofix/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DB_PATH: data/deals.db
+      BACKUP_DIR: data/backups
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Which part to try
+        id: part
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          part=$(printf '%s' "$TITLE" | sed -n 's/.*\[part: *\([a-z]*\)\].*/\1/p')
+          echo "part=${part:-site}" >> "$GITHUB_OUTPUT"
+          echo "Trying part: ${part:-site}"
+
+      - name: Install Chromium
+        if: steps.part.outputs.part == 'verify' || steps.part.outputs.part == 'links'
+        run: python -m playwright install --with-deps chromium
+
+      - name: Write settings file
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+        run: printf '%s\n' "$ENV_FILE" | sed 's/\r$//' > .env
+
+      - name: Copy the database (read only)
+        run: |
+          git clone --depth 1 --branch data \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" data || mkdir -p data
+          rm -rf data/.git
+
+      - name: Try the part
+        run: python main.py try-part "${{ steps.part.outputs.part }}"
+
+      - name: Remove settings file
+        if: always()
+        run: rm -f .env
