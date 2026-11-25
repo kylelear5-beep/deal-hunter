@@ -562,3 +562,14 @@ async def test_recheck_saved_deals_and_sale_labels(db, channels, monkeypatch):
     from alerts import deal_label
     assert deal_label(by["27 gallon tote"])[0] == "💲 SALE"
     assert deal_label({"category": "COUPON", "promo_code": "X"})[0] == "🏷️ COUPON CODE"
+
+
+async def test_buying_guides_generated(db, channels, tmp_path):
+    await db.insert_deal(make("tractorsupply.com", "$60 off", summary="DeWalt chainsaw"))
+    await sitegen.build_site(db, str(tmp_path))
+    guide = (tmp_path / "guides" / "farm.html").read_text(encoding="utf-8")
+    assert "buying guide" in guide.lower()
+    assert "Money-saving tips" in guide
+    assert "DeWalt chainsaw" in guide
+    assert (tmp_path / "guides" / "index.html").exists()
+    assert "/guides/" in (tmp_path / "index.html").read_text(encoding="utf-8")
