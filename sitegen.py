@@ -450,8 +450,10 @@ def verification_meta() -> str:
     f = Path(__file__).resolve().parent / "site_meta" / "verification.txt"
     if not f.is_file():
         return ""
+    avant = (r'<script type="text/javascript" src="https?://classic\.avantlink\.com/'
+             r'affiliate_app_confirm\.php\?mode=js&(?:amp;)?authResponse=[0-9a-f]{20,64}"></script>')
     tags = [ln.strip() for ln in f.read_text(encoding="utf-8").splitlines()
-            if re.fullmatch(r"<meta\s[^<>]*>", ln.strip())]
+            if re.fullmatch(r"<meta\s[^<>]*>", ln.strip()) or re.fullmatch(avant, ln.strip())]
     return "".join(tags)
 
 
