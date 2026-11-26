@@ -45,3 +45,9 @@ def test_hero_video_is_silent_plays_once_and_has_deals_button():
     assert "muted" in h and "playsinline" in h and "loop" not in h
     assert "Let's get those deals!" in h and 'href="#deals"' in h
     assert "prefers-reduced-motion" in sitegen.HERO_JS and "saveData" in sitegen.HERO_JS
+
+
+def test_search_scrolls_to_results_and_runs_from_link():
+    js = sitegen.SITE_JS
+    assert "scrollIntoView" in js and "noresults" in js
+    assert "if(p){run();" in js          # ?q= from another page actually filters
