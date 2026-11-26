@@ -137,10 +137,12 @@ button.save.on{background:var(--amber-bg);border-color:#f59e0b;color:var(--amber
 .drawer{position:fixed;inset:0;z-index:40;background:rgba(17,24,39,.55);display:flex;justify-content:flex-end}
 .drawer[hidden]{display:none}
 .drawer .panel{background:#fff;width:min(420px,100%);height:100%;overflow:auto;padding:18px}
+.filter-bar{scroll-margin-top:130px}
+.noresults{font-size:18px;font-weight:700;padding:14px 16px;border:2px dashed var(--line);border-radius:12px}
 .drawer .item{border:1px solid var(--line);border-radius:12px;padding:10px;margin:10px 0}
 footer{background:#fff;border-top:1px solid var(--line);margin-top:30px;padding:18px 0;color:var(--muted);
   font-size:15px}
-@media (max-width:640px){.row1{flex-wrap:wrap}.tile{padding:8px;font-size:14px}.tile .em{font-size:20px}.search{order:3;flex-basis:100%}.hbtn .t{display:none}
+@media (max-width:640px){.filter-bar{scroll-margin-top:200px}.row1{flex-wrap:wrap}.tile{padding:8px;font-size:14px}.tile .em{font-size:20px}.search{order:3;flex-basis:100%}.hbtn .t{display:none}
   h1{font-size:25px}.filter-count{margin-left:0}}
 """
 
@@ -164,7 +166,14 @@ function run(){var t=(q&&q.value||'').trim().toLowerCase(),n=0,s=storeSel&&store
    mode==='SAVED'?!!watch[d.hash]:d.cat===mode))&&(!s||d.store===s)&&
   (!ni||(','+d.niches+',').indexOf(','+ni+',')>-1)&&(!t||(d.text||'').indexOf(t)>-1);
   c.style.display=ok?'':'none';if(ok)n++});
- if(count)count.textContent=n+' shown'}
+ if(count)count.textContent=n+' shown';
+ if(grid){var none=document.getElementById('noresults');if(!none){none=document.createElement('p');
+  none.id='noresults';none.className='noresults';grid.parentNode.insertBefore(none,grid)}
+  none.textContent=t&&!n?'No deals match \u201c'+q.value.trim()+'\u201d right now. Try a shorter word, or check back soon.':'';
+  none.hidden=!(t&&!n)}}
+function show(){if(!grid||!(q&&q.value.trim()))return;var top=(bar||grid).getBoundingClientRect().top;
+ if(top>window.innerHeight*0.6||top<0)(bar||grid).scrollIntoView({behavior:'smooth',block:'start'})}
+var qt;
 function sort(){if(!grid||!sortSel)return;var v=sortSel.value;cards.sort(function(a,b){
  if(v==='store')return a.dataset.store.localeCompare(b.dataset.store);
  if(v==='codes')return (b.dataset.code?1:0)-(a.dataset.code?1:0)||(b.dataset.new>a.dataset.new?1:-1);
@@ -176,8 +185,11 @@ if(bar){bar.addEventListener('click',function(ev){var p=ev.target.closest('.pill
  [storeSel,nicheSel].forEach(function(x){x&&x.addEventListener('change',run)});
  sortSel&&sortSel.addEventListener('change',sort)}
 if(q){var p=new URLSearchParams(location.search).get('q');if(p){q.value=p}
- q.addEventListener('input',run);q.addEventListener('keydown',function(ev){
- if(ev.key==='Enter'&&!grid){location.href=q.dataset.home+'?q='+encodeURIComponent(q.value)}})}
+ q.addEventListener('input',function(){run();clearTimeout(qt);qt=setTimeout(show,900)});
+ q.addEventListener('keydown',function(ev){if(ev.key!=='Enter')return;ev.preventDefault();
+  if(!grid){location.href=q.dataset.home+'?q='+encodeURIComponent(q.value);return}
+  clearTimeout(qt);run();show();q.blur()});
+ if(p){run();setTimeout(show,300)}}
 document.addEventListener('keydown',function(ev){var a=document.activeElement.tagName;
  if(ev.key==='/'&&q&&a!=='INPUT'&&a!=='SELECT'){ev.preventDefault();q.focus()}
  if(ev.key==='Escape')closeW()});
