@@ -138,6 +138,7 @@ button.save.on{background:var(--amber-bg);border-color:#f59e0b;color:var(--amber
 .drawer[hidden]{display:none}
 .drawer .panel{background:#fff;width:min(420px,100%);height:100%;overflow:auto;padding:18px}
 .filter-bar{scroll-margin-top:130px}
+.noresults .srch{display:inline-block;margin:10px 10px 0 0;padding:10px 14px;border:2px solid var(--blue);border-radius:10px;font-weight:800;text-decoration:none}
 .noresults{font-size:18px;font-weight:700;padding:14px 16px;border:2px dashed var(--line);border-radius:12px}
 .drawer .item{border:1px solid var(--line);border-radius:12px;padding:10px;margin:10px 0}
 footer{background:#fff;border-top:1px solid var(--line);margin-top:30px;padding:18px 0;color:var(--muted);
@@ -158,18 +159,23 @@ var sortSel=bar&&bar.querySelector('[data-role=sort]'),count=bar&&bar.querySelec
 if(storeSel){var st={};cards.forEach(function(c){st[c.dataset.store]=(st[c.dataset.store]||0)+1});
  Object.keys(st).sort(function(a,b){return a.localeCompare(b)}).forEach(function(s){
  var o=document.createElement('option');o.value=s;o.textContent=s+' ('+st[s]+')';storeSel.appendChild(o)})}
+function words(t){return t.split(/\\s+/).filter(Boolean)}
 function run(){var t=(q&&q.value||'').trim().toLowerCase(),n=0,s=storeSel&&storeSel.value,
  ni=nicheSel&&nicheSel.value;
  cards.forEach(function(c){var d=c.dataset,ok=
   (mode==='ALL'||(mode==='VERIFIED'?d.verified==='1':mode==='CODES'?d.code!=='':
    mode==='OPENBOX'?!!d.cond:
    mode==='SAVED'?!!watch[d.hash]:d.cat===mode))&&(!s||d.store===s)&&
-  (!ni||(','+d.niches+',').indexOf(','+ni+',')>-1)&&(!t||(d.text||'').indexOf(t)>-1);
+  (!ni||(','+d.niches+',').indexOf(','+ni+',')>-1)&&(!t||words(t).every(function(w){var x=d.text||'';return x.indexOf(w)>-1||
+   (w.length>3&&w.slice(-1)==='s'&&x.indexOf(w.slice(0,-1))>-1)}));
   c.style.display=ok?'':'none';if(ok)n++});
  if(count)count.textContent=n+' shown';
  if(grid){var none=document.getElementById('noresults');if(!none){none=document.createElement('p');
   none.id='noresults';none.className='noresults';grid.parentNode.insertBefore(none,grid)}
-  none.textContent=t&&!n?'No deals match \u201c'+q.value.trim()+'\u201d right now. Try a shorter word, or check back soon.':'';
+  var raw=q.value.trim(),k=encodeURIComponent(raw),links='';
+  if(t&&!n){[['az','Amazon'],['eb','eBay']].forEach(function(x){var tpl=q.dataset[x[0]];if(tpl)links+=
+   ' <a class="srch" rel="sponsored nofollow" target="_blank" href="'+tpl.replace('__Q__',k)+'">Search '+x[1]+' for \u201c'+esc(raw)+'\u201d \u2197</a>'})}
+  none.innerHTML=t&&!n?'No deals match \u201c'+esc(raw)+'\u201d right now.'+(links?'<br>'+links:' Try a shorter word, or check back soon.'):'';
   none.hidden=!(t&&!n)}}
 function show(){if(!grid||!(q&&q.value.trim()))return;var top=(bar||grid).getBoundingClientRect().top;
  if(top>window.innerHeight*0.6||top<0)(bar||grid).scrollIntoView({behavior:'smooth',block:'start'})}
@@ -363,6 +369,15 @@ def my_deals_section() -> str:
             f'<div class="perks">{perks}</div><div class="mygrid"></div></section>')
 
 
+def _search_templates() -> tuple[str, str]:
+    """Affiliate search links for a search with no deals ('__Q__' = the words typed).
+    Amazon only with a Store ID, eBay only with a campaign ID; empty otherwise."""
+    from affiliate import build_affiliate_url
+    az = build_affiliate_url("https://www.amazon.com/s?k=__Q__") if settings.amazon_tag else ""
+    eb = build_affiliate_url("https://www.ebay.com/sch/i.html?_nkw=__Q__") if settings.ebay_campid else ""
+    return (az if "tag=" in az else ""), (eb if "campid=" in eb else "")
+
+
 def go_link(deal: dict) -> str:
     if settings.click_tracking:
         return u(f"/go/{deal['deal_hash'][:12]}?c=web")
@@ -462,7 +477,9 @@ def page(title: str, body: str, description: str = "", extra_head: str = "",
     if False:  # no Discord links on the website (Kyle's rule)
         share = (f'<a class="hbtn green" href="{e(settings.discord_invite_url, quote=True)}" '
                  'target="_blank" rel="noopener">＋<span class="t"> Share a deal</span></a>')
+    az_tpl, eb_tpl = _search_templates()
     search_box = (f'<label class="search">🔍<input id="q" type="search" data-home="{u("/")}" '
+                  f'data-az="{e(az_tpl, quote=True)}" data-eb="{e(eb_tpl, quote=True)}" '
                   'placeholder="Search stores, items or codes (press /)" '
                   'aria-label="Search deals"></label>') if search else '<div style="flex:1"></div>'
     year = datetime.now().year
