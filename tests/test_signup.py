@@ -51,3 +51,14 @@ def test_search_scrolls_to_results_and_runs_from_link():
     js = sitegen.SITE_JS
     assert "scrollIntoView" in js and "noresults" in js
     assert "if(p){run();" in js          # ?q= from another page actually filters
+
+
+def test_no_match_search_offers_tagged_amazon_and_ebay(monkeypatch):
+    monkeypatch.setattr(settings, "amazon_tag", "dealhunte0120-20")
+    monkeypatch.setattr(settings, "ebay_campid", "5339999999")
+    az, eb = sitegen._search_templates()
+    assert az.startswith("https://www.amazon.com/s?k=__Q__") and "tag=dealhunte0120-20" in az
+    assert "_nkw=__Q__" in eb and "campid=5339999999" in eb
+    monkeypatch.setattr(settings, "amazon_tag", "")
+    assert sitegen._search_templates()[0] == ""
+    assert "w.slice(0,-1)" in sitegen.SITE_JS       # plurals: "drills" finds "drill"
